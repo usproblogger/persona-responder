@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Start Your Project — AI Intake Assistant</title>
+  <title>Start Your Project — AI Solutions Architect</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -32,7 +32,7 @@
       color: var(--muted); margin-bottom: 12px; cursor: pointer;
     }
     .messages {
-      height: 340px; overflow-y: auto; display: flex; flex-direction: column;
+      height: 350px; overflow-y: auto; display: flex; flex-direction: column;
       gap: 12px; padding: 12px; background: #0f172a;
       border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px;
     }
@@ -72,10 +72,10 @@
 
 <div class="container">
   <h1>Tell Us About Your Project</h1>
-  <p class="sub">Chat or speak with our AI intake assistant—it will clarify your goals and email a structured brief straight to our developer.</p>
+  <p class="sub">Brainstorm with our AI Solutions Architect—it will help scope your features and email a technical brief straight to our developer.</p>
 
   <label class="voice-toggle">
-    <input type="checkbox" id="tts-toggle" /> Read AI questions aloud
+    <input type="checkbox" id="tts-toggle" /> Read AI responses aloud
   </label>
 
   <div class="messages" id="messages"></div>
@@ -97,19 +97,20 @@
   const WORKER_URL = "https://groq-intake-proxy.usproblogger.workers.dev/";
   const WEB3FORMS_KEY = "7393fec3-3022-4eea-bdef-224842265d47";
 
-  const SYSTEM_PROMPT = `You are a friendly, sharp web development intake concierge.
-Your goal is to collect 5 pieces of info from the client naturally, asking ONE concise question at a time (1-2 sentences max per reply):
-1. Project Type: New Project, Existing Project, or Troubleshoot.
-2. Core Objective: What they want built, updated, or fixed on the web.
-3. Constraints: Target timeline and rough budget range.
-4. Existing Materials: Domain, branding, tech stack, or example sites they already have.
-5. Contact Info: Their name and best email address for the developer to follow up.
+  const SYSTEM_PROMPT = `You are a sharp, consultative Senior Web Solutions Architect helping a client scope their project before passing it to our developer.
 
-Rules:
-- Acknowledge what the user just said briefly, then ask for the next missing item.
-- Skip any item the user already answered.
-- Once ALL 5 items are collected, output ONLY a valid JSON block (no extra text before or after) in this exact format:
-{"done":true,"project_type":"...","objective":"...","constraints":"...","materials":"...","contact":"...","summary":"2-sentence executive summary for the developer"}`;
+Your behavior:
+- Do NOT act like a robotic form. Engage naturally with what the client shares.
+- Offer 1 brief, genuinely helpful technical insight, suggestion, or clarifying angle based on their specific answer (e.g., if they mention booking, suggest calendar sync or Stripe deposits; if troubleshooting, ask about hosting/CMS or console errors).
+- Naturally weave in gathering these 5 essentials across the conversation (1 question per turn):
+  1. Project Type (New Project, Existing Project, or Troubleshoot)
+  2. Core Objective & Key Features needed
+  3. Timeline & Rough Budget
+  4. Existing Assets (domain, design, tech stack, or reference links)
+  5. Name & Best Email for the developer to send a proposal
+
+Once all 5 essentials are clear, output ONLY a valid JSON block (no extra text) in this exact format:
+{"done":true,"project_type":"...","objective":"...","constraints":"...","materials":"...","contact":"...","summary":"3-sentence technical & executive brief with recommended tech stack/approach for the developer"}`;
 
   let conversation = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -163,7 +164,7 @@ Rules:
       if (jsonMatch) {
         const brief = JSON.parse(jsonMatch[0]);
         document.getElementById("input-controls").style.display = "none";
-        addMessage("Thanks! I've organized your project brief and am sending it to our developer now...", "ai");
+        addMessage("Thanks! I've compiled your technical project brief and am sending it to our developer now...", "ai");
         await submitToEmail(brief);
       } else {
         addMessage(reply, "ai");
@@ -184,12 +185,12 @@ Rules:
     const payload = {
       access_key: WEB3FORMS_KEY,
       subject: `New Web Dev Inquiry [${brief.project_type || "Project"}] — ${brief.contact || "New Lead"}`,
-      from_name: "AI Project Intake",
-      "0_AI_Executive_Summary": brief.summary,
+      from_name: "AI Solutions Architect",
+      "0_Technical_Executive_Brief": brief.summary,
       "1_Project_Type": brief.project_type,
-      "2_Core_Objective": brief.objective,
+      "2_Core_Objective_Features": brief.objective,
       "3_Timeline_and_Budget": brief.constraints,
-      "4_Existing_Materials": brief.materials,
+      "4_Existing_Assets": brief.materials,
       "5_Client_Contact": brief.contact
     };
 
@@ -201,7 +202,7 @@ Rules:
       });
       const data = await res.json();
       if (data.success) {
-        addMessage("✅ All sent! Your project brief is in our developer's inbox.", "ai");
+        addMessage("✅ All sent! Your technical brief and recommended approach are in our developer's inbox.", "ai");
       } else {
         addMessage("⚠️ Could not send the email. Check your Web3Forms key.", "ai");
       }
