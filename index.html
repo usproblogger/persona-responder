@@ -240,7 +240,12 @@
         </div>
 
         <!-- Playback & Copy Controls -->
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="summarizeBtn" type="button" disabled class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 disabled:opacity-40 disabled:pointer-events-none transition">
+            <i data-lucide="list-collapse" class="w-3.5 h-3.5"></i>
+            <span id="summarizeBtnLabel">Summarize</span>
+          </button>
+
           <button id="speakBtn" type="button" disabled class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 disabled:opacity-40 disabled:pointer-events-none transition">
             <i id="speakIcon" data-lucide="volume-2" class="w-4 h-4"></i>
             <span id="speakBtnLabel">Speak</span>
@@ -405,6 +410,8 @@
         isListening: false,
         isGenerating: false,
         lastResponse: '',
+        lastSummary: '',
+        isShowingSummary: false,
         settings: {
           provider: 'offline',    // 'offline' | 'gemini' | 'openai' | 'groq'
           autoFallback: true,
@@ -471,6 +478,8 @@
         responseAudienceBadge: document.getElementById('responseAudienceBadge'),
         responseModeBadge: document.getElementById('responseModeBadge'),
         responseOutput: document.getElementById('responseOutput'),
+        summarizeBtn: document.getElementById('summarizeBtn'),
+        summarizeBtnLabel: document.getElementById('summarizeBtnLabel'),
         speakBtn: document.getElementById('speakBtn'),
         speakBtnLabel: document.getElementById('speakBtnLabel'),
         stopSpeakBtn: document.getElementById('stopSpeakBtn'),
@@ -1140,6 +1149,8 @@
         try {
           const { text, sourceLabel } = await callLLMProvider(userText);
           state.lastResponse = text;
+          state.lastSummary = '';
+          state.isShowingSummary = false;
 
           const pCfg = PERSONA_CONFIG[state.persona];
           els.responsePersonaBadge.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${pCfg.badgeClass}`;
@@ -1148,38 +1159,58 @@
           els.responseModeBadge.textContent = `• ${sourceLabel}`;
           els.responseOutput.textContent = text;
 
+          els.summarizeBtn.disabled = false;
+          if (els.summarizeBtnLabel) {
+            els.summarizeBtnLabel.textContent = state.lang === 'ru-RU' ? 'Кратко' : 'Summarize';
+          }
           els.speakBtn.disabled = false;
           els.copyBtn.disabled = false;
           if (els.speakBtnLabel) {
             els.speakBtnLabel.textContent = state.lang === 'ru-RU' ? 'Озвучить' : 'Speak';
           }
+      // --- Summarize Only the Current Response ---
+      function summarizeOnlyResponse(text, lang) {
+        if (!text) return '';
+        const sentences = text
+          .replace(/\s+/g, ' ')
+          .split(/(?<=[.!?])\s+/)
+          .map(s => s.trim())
+          .filter(Boolean);
 
-          state.history.unshift({
-            id: Date.now(),
-            persona: state.persona,
-            audience: state.audience,
-            lang: state.lang,
-            input: userText,
-            output: text,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          });
-          saveHistoryToStorage();
-          renderHistory();
+        if (sentences.length <= 1) {
+          return text.trim();
+        }
 
-          setStatus(
-            state.lang === 'ru-RU'
-              ? 'Ответ готов (нажмите «Озвучить», чтобы прослушать).'
-              : 'Response ready (click Speak to listen).',
-            'ready'
-          );
-        } catch (err) {
-          console.error(err);
-          showToast(err.message || 'Failed to generate response.', 'error');
-          setStatus('Error generating response.', 'error');
-        } finally {
-          state.isGenerating = false;
-          els.generateBtn.disabled = false;
-          els.generateBtn.classList.remove('opacity-70', 'pointer-events-none');
+        const first = sentences[0].replace(
+          /^(The committee notes|For the record|From an analytical standpoint|Examined through|Peace be with[^:]+:|Hold fast to[^:]+:|Комитет принимает[^:]+:|Для внесения в протокол:|С аналитической точки зрения,|Если рассмотреть)\s*/i,
+          ''
+        );
+        const coreFirst = first.charAt(0).toUpperCase() + first.slice(1);
+        const last = sentences[sentences.length - 1];
+        const prefix = lang === 'ru-RU' ? 'Краткий итог: ' : 'Summary: ';
+        return `${prefix}${coreFirst} ${last}`;
+      }
+
+      function handleSummarizeToggle() {
+        if (!state.lastResponse) return;
+        stopSpeaking();
+
+        if (state.isShowingSummary) {
+          state.isShowingSummary = false;
+          els.responseOutput.textContent = state.lastResponse;
+          if (els.summarizeBtnLabel) {
+            els.summarizeBtnLabel.textContent = state.lang === 'ru-RU' ? 'Кратко' : 'Summarize';
+          }
+          return;
+        }
+
+        if (!state.lastSummary) {
+          state.lastSummary = summarizeOnlyResponse(state.lastResponse, state.lang);
+        }
+        state.isShowingSummary = true;
+        els.responseOutput.textContent = state.lastSummary;
+        if (els.summarizeBtnLabel) {
+          els.summarizeBtnLabel.textContent = state.lang === 'ru-RU' ? 'Полный текст' : 'Full Response';
         }
       }
 
@@ -1358,14 +1389,19 @@
         });
 
         els.generateBtn.addEventListener('click', handleGenerate);
+        els.summarizeBtn.addEventListener('click', handleSummarizeToggle);
 
         els.speakBtn.addEventListener('click', () => {
-          if (state.lastResponse) {
-            speakResponse(state.lastResponse, state.persona, state.lang);
+          const activeText = state.isShowingSummary ? state.lastSummary : state.lastResponse;
+          if (activeText) {
+            speakResponse(activeText, state.persona, state.lang);
           }
         });
         els.stopSpeakBtn.addEventListener('click', stopSpeaking);
-        els.copyBtn.addEventListener('click', () => copyTextToClipboard(state.lastResponse));
+        els.copyBtn.addEventListener('click', () => {
+          const activeText = state.isShowingSummary ? state.lastSummary : state.lastResponse;
+          copyTextToClipboard(activeText);
+        });
 
         els.clearHistoryBtn.addEventListener('click', () => {
           state.history = [];
