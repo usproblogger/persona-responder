@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Start Your Project — AI Solutions Architect</title>
+  <title>Persona Voice Responder</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -11,8 +11,9 @@
       --border: #334155;
       --text: #f8fafc;
       --muted: #94a3b8;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --gold: #f59e0b;
     }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
     body {
@@ -21,197 +22,288 @@
       min-height: 100vh; padding: 20px;
     }
     .container {
-      width: 100%; max-width: 620px; background: var(--card);
+      width: 100%; max-width: 680px; background: var(--card);
       border: 1px solid var(--border); border-radius: 16px;
-      padding: 26px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      padding: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.45);
     }
-    h1 { margin: 0 0 6px; font-size: 1.45rem; }
-    p.sub { margin: 0 0 14px; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
-    .voice-toggle {
-      display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem;
-      color: var(--muted); margin-bottom: 12px; cursor: pointer;
+    h1 { margin: 0 0 6px; font-size: 1.5rem; }
+    p.sub { margin: 0 0 18px; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
+
+    .controls-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;
     }
-    .messages {
-      height: 350px; overflow-y: auto; display: flex; flex-direction: column;
-      gap: 12px; padding: 12px; background: #0f172a;
-      border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px;
+    @media (max-width: 560px) { .controls-grid { grid-template-columns: 1fr; } }
+
+    .control-group label {
+      display: block; font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px; font-weight: 600;
     }
-    .msg {
-      max-width: 85%; padding: 12px 15px; border-radius: 12px;
-      font-size: 0.94rem; line-height: 1.45; white-space: pre-wrap;
+    select, input[type="password"], input[type="text"], textarea {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: #0f172a;
+      color: var(--text); font-size: 0.92rem; outline: none;
     }
-    .msg.ai { background: #1e293b; border: 1px solid var(--border); align-self: flex-start; }
-    .msg.user { background: var(--accent); color: white; align-self: flex-end; }
-    .quick-options {
-      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+    select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+
+    .toggle-row {
+      display: flex; gap: 8px; background: #0f172a; padding: 4px;
+      border-radius: 10px; border: 1px solid var(--border);
     }
-    .option-btn {
-      padding: 9px 14px; border-radius: 999px; border: 1px solid var(--accent);
-      background: rgba(59, 130, 246, 0.14); color: #93c5fd;
-      font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: 0.15s;
+    .toggle-btn {
+      flex: 1; padding: 8px 10px; border: none; border-radius: 7px;
+      background: transparent; color: var(--muted); font-weight: 600;
+      font-size: 0.85rem; cursor: pointer; transition: 0.15s;
     }
-    .option-btn:hover { background: var(--accent); color: white; }
-    .input-row { display: flex; gap: 8px; }
-    input[type="text"] {
-      flex: 1; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
-      background: #0f172a; color: var(--text); font-size: 0.95rem; outline: none;
+    .toggle-btn.active { background: var(--accent); color: white; }
+
+    .api-drawer {
+      background: #0f172a; border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;
     }
-    input[type="text"]:focus { border-color: var(--accent); }
-    button.action {
-      padding: 0 16px; border-radius: 10px; border: none; font-weight: 600;
-      cursor: pointer; background: var(--accent); color: white; transition: 0.15s;
+    .api-drawer summary {
+      cursor: pointer; font-size: 0.84rem; color: var(--muted); font-weight: 600;
     }
-    button.action:hover { background: var(--accent-hover); }
-    button.action:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.mic { background: #334155; font-size: 1.1rem; }
-    button.mic.listening { background: #ef4444; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 50% { opacity: 0.6; } }
+    .api-fields {
+      display: grid; grid-template-columns: 140px 1fr auto; gap: 8px; margin-top: 10px;
+    }
+    @media (max-width: 560px) { .api-fields { grid-template-columns: 1fr; } }
+
+    textarea { min-height: 96px; resize: vertical; margin-bottom: 12px; line-height: 1.45; }
+
+    .action-bar { display: flex; gap: 10px; margin-bottom: 18px; }
+    button.primary {
+      flex: 1; padding: 12px 16px; border-radius: 10px; border: none;
+      background: var(--accent); color: white; font-weight: 600;
+      font-size: 0.95rem; cursor: pointer; transition: 0.15s;
+    }
+    button.primary:hover { background: var(--accent-hover); }
+    button.primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    button.secondary {
+      padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+      background: #0f172a; color: var(--text); font-weight: 600; cursor: pointer;
+    }
+    button.secondary.listening { border-color: #ef4444; background: rgba(239,68,68,0.18); color: #fca5a5; }
+
+    .output-box {
+      background: #0f172a; border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px; min-height: 130px;
+    }
+    .output-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px; font-size: 0.8rem; color: var(--gold); font-weight: 700;
+    }
+    .output-text {
+      font-size: 0.96rem; line-height: 1.6; white-space: pre-wrap; color: var(--text);
+    }
+    .mini-btn {
+      background: #1e293b; border: 1px solid var(--border); color: var(--text);
+      padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>Tell Us About Your Project</h1>
-  <p class="sub">Brainstorm with our AI Solutions Architect—it will help scope your features and email a technical brief straight to our developer.</p>
+  <h1>Persona Voice Responder</h1>
+  <p class="sub">Speak or type your situation to generate grounded reassurance or calm rhetorical rebuttals—with automatic offline fallback.</p>
 
-  <label class="voice-toggle">
-    <input type="checkbox" id="tts-toggle" /> Read AI responses aloud
-  </label>
+  <div class="controls-grid">
+    <div class="control-group">
+      <label for="persona">Select Persona</label>
+      <select id="persona">
+        <option value="professor">The Professor (Analytical & Stoic)</option>
+        <option value="priest">The Priest (Pastoral & Compassionate)</option>
+        <option value="senate">Senatorial Hearing (Formal & Procedural)</option>
+      </select>
+    </div>
 
-  <div class="messages" id="messages"></div>
-
-  <div class="quick-options" id="quick-options">
-    <button type="button" class="option-btn" onclick="submitValue('New Project')">New Project</button>
-    <button type="button" class="option-btn" onclick="submitValue('Existing Project')">Existing Project</button>
-    <button type="button" class="option-btn" onclick="submitValue('Troubleshoot')">Troubleshoot</button>
+    <div class="control-group">
+      <label>Target Audience</label>
+      <div class="toggle-row">
+        <button type="button" class="toggle-btn active" id="aud-self" onclick="setAudience('self')">To Yourself</button>
+        <button type="button" class="toggle-btn" id="aud-opp" onclick="setAudience('opponents')">To Opponents</button>
+      </div>
+    </div>
   </div>
 
-  <div class="input-row" id="input-controls">
-    <button class="action mic" id="mic-btn" title="Speak answer" onclick="toggleMic()">🎤</button>
-    <input type="text" id="user-input" placeholder="Type or tap mic to speak..." onkeydown="if(event.key==='Enter') sendAnswer()" />
-    <button class="action" id="send-btn" onclick="sendAnswer()">Send</button>
+  <details class="api-drawer">
+    <summary>AI Provider Settings (Optional — works offline without a key)</summary>
+    <div class="api-fields">
+      <select id="provider" onchange="loadSavedKey()">
+        <option value="groq">Groq</option>
+        <option value="gemini">Gemini</option>
+        <option value="openai">OpenAI</option>
+      </select>
+      <input type="password" id="api-key" placeholder="Paste API key (saved locally)" />
+      <button type="button" class="mini-btn" onclick="saveKey()">Save</button>
+    </div>
+  </details>
+
+  <textarea id="prompt-input" placeholder="Describe the situation, pressure, or claim you want addressed..."></textarea>
+
+  <div class="action-bar">
+    <button type="button" class="secondary" id="mic-btn" onclick="toggleMic()">🎤 Speak</button>
+    <button type="button" class="primary" id="gen-btn" onclick="generateResponse()">Generate Response</button>
+  </div>
+
+  <div class="output-box">
+    <div class="output-header">
+      <span id="mode-badge">READY</span>
+      <div style="display:flex; gap:6px;">
+        <button type="button" class="mini-btn" onclick="speakOutput()">🔊 Read Aloud</button>
+        <button type="button" class="mini-btn" onclick="copyOutput()">Copy</button>
+      </div>
+    </div>
+    <div class="output-text" id="output-text">Select a persona and audience, enter your prompt, and click Generate Response.</div>
   </div>
 </div>
 
 <script>
-  const WORKER_URL = "https://groq-intake-proxy.usproblogger.workers.dev/";
-  const WEB3FORMS_KEY = "7393fec3-3022-4eea-bdef-224842265d47";
+  let audience = "self";
 
-  const SYSTEM_PROMPT = `You are a sharp, consultative Senior Web Solutions Architect helping a client scope their project before passing it to our developer.
+  function setAudience(mode) {
+    audience = mode;
+    document.getElementById("aud-self").classList.toggle("active", mode === "self");
+    document.getElementById("aud-opp").classList.toggle("active", mode === "opponents");
+  }
 
-Your behavior:
-- Do NOT act like a robotic form. Engage naturally with what the client shares.
-- Offer 1 brief, genuinely helpful technical insight, suggestion, or clarifying angle based on their specific answer (e.g., if they mention booking, suggest calendar sync or Stripe deposits; if troubleshooting, ask about hosting/CMS or console errors).
-- Naturally weave in gathering these 5 essentials across the conversation (1 question per turn):
-  1. Project Type (New Project, Existing Project, or Troubleshoot)
-  2. Core Objective & Key Features needed
-  3. Timeline & Rough Budget
-  4. Existing Assets (domain, design, tech stack, or reference links)
-  5. Name & Best Email for the developer to send a proposal
+  function saveKey() {
+    const provider = document.getElementById("provider").value;
+    const key = document.getElementById("api-key").value.trim();
+    if (key) {
+      localStorage.setItem(`persona_key_${provider}`, key);
+      alert(`Saved ${provider.toUpperCase()} API key locally in this browser.`);
+    }
+  }
 
-Once all 5 essentials are clear, output ONLY a valid JSON block (no extra text) in this exact format:
-{"done":true,"project_type":"...","objective":"...","constraints":"...","materials":"...","contact":"...","summary":"3-sentence technical & executive brief with recommended tech stack/approach for the developer"}`;
+  function loadSavedKey() {
+    const provider = document.getElementById("provider").value;
+    document.getElementById("api-key").value = localStorage.getItem(`persona_key_${provider}`) || "";
+  }
 
-  let conversation = [
-    { role: "system", content: SYSTEM_PROMPT },
-    { role: "assistant", content: "Hi there! Is this a new project, an existing project, or something you need to troubleshoot?" }
-  ];
+  function buildSystemPrompt(persona, aud) {
+    const roles = {
+      professor: "You are a stoic, razor-sharp university professor of philosophy and rhetoric. Speak with calm clarity, historical perspective, and logical precision.",
+      priest: "You are a compassionate, grounded parish priest offering steady pastoral wisdom, moral clarity, and peace of mind without preachiness.",
+      senate: "You are a seasoned statesman speaking on the record in a formal Senatorial hearing. Use measured, dignified, procedural rhetoric that exposes weak premises without losing composure."
+    };
+    const direction = aud === "self"
+      ? "Address the user directly ('you') to steady their resolve, separate what is in their control from external noise, and reinforce quiet dignity."
+      : "Address the external critics or opposing party directly in a calm, firm, unshakeable rebuttal that sets clear boundaries without defensiveness.";
+    return `${roles[persona]} ${direction} Keep the response to 1–2 concise, impactful paragraphs.`;
+  }
 
-  function addMessage(text, sender) {
-    const box = document.getElementById("messages");
-    const div = document.createElement("div");
-    div.className = `msg ${sender}`;
-    div.textContent = text;
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
+  function offlineFallback(persona, aud, input) {
+    const topic = input ? `regarding "${input.slice(0, 120)}"` : "in this matter";
+    const bank = {
+      professor: {
+        self: `Step back and examine the structure of the problem ${topic}. External agitation rarely correlates with sound judgment; those who demand immediate compliance usually rely on emotional momentum rather than evidence. Separate your actual duties from another person's unexamined expectations, keep your records clear, and act only on what is demonstrably true.`,
+        opponents: `Your premise ${topic} rests on assumption rather than established fact. Volume and repetition do not convert an assertion into proof, nor do they obligate anyone to abandon prudent standards. Until concrete evidence is placed on the table, this position remains unchanged.`
+      },
+      priest: {
+        self: `Take a quiet breath and release the burden you were never meant to carry alone ${topic}. Steadiness of heart does not require winning every argument or appeasing every restless voice around you. Do the right thing faithfully in front of you today, and let peace guard your mind against unnecessary turmoil.`,
+        opponents: `We can speak plainly without bitterness ${topic}: goodwill does not mean surrendering conscience or basic fairness. Every person is accountable for their own words and conduct, and we will continue forward in integrity and peace regardless of pressure.`
+      },
+      senate: {
+        self: `For the record ${topic}, composure is your strongest institutional asset. When others resort to theatrical urgency, your duty is to maintain order, honor your genuine commitments, and decline any demand that lacks proper standing. Stand firm on solid ground.`,
+        opponents: `Let the record reflect that the characterization offered ${topic} is neither accurate nor substantiated. We do not conduct serious business by insinuation or manufactured urgency. Absent verifiable facts and proper procedure, the matter is closed.`
+      }
+    };
+    return bank[persona][aud];
+  }
 
-    if (sender === "ai" && document.getElementById("tts-toggle").checked && "speechSynthesis" in window) {
+  async function generateResponse() {
+    const persona = document.getElementById("persona").value;
+    const provider = document.getElementById("provider").value;
+    const apiKey = document.getElementById("api-key").value.trim() || localStorage.getItem(`persona_key_${provider}`);
+    const input = document.getElementById("prompt-input").value.trim();
+    const outEl = document.getElementById("output-text");
+    const badge = document.getElementById("mode-badge");
+    const btn = document.getElementById("gen-btn");
+
+    if (!input) {
+      outEl.textContent = "Please enter or speak a prompt first.";
+      return;
+    }
+
+    btn.disabled = true;
+    outEl.textContent = "Synthesizing response...";
+
+    if (!apiKey) {
+      badge.textContent = "OFFLINE SYNTHESIS MODE";
+      outEl.textContent = offlineFallback(persona, audience, input);
+      btn.disabled = false;
+      return;
+    }
+
+    const systemPrompt = buildSystemPrompt(persona, audience);
+
+    try {
+      let reply = "";
+      if (provider === "groq") {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages: [{ role: "system", content: systemPrompt }, { role: "user", content: input }],
+            temperature: 0.65,
+            max_tokens: 350
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || "Groq error");
+        reply = data.choices[0].message.content.trim();
+      } else if (provider === "openai") {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "system", content: systemPrompt }, { role: "user", content: input }],
+            temperature: 0.65
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || "OpenAI error");
+        reply = data.choices[0].message.content.trim();
+      } else if (provider === "gemini") {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: input }] }]
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || "Gemini error");
+        reply = data.candidates[0].content.parts[0].text.trim();
+      }
+
+      badge.textContent = `${provider.toUpperCase()} LIVE`;
+      outEl.textContent = reply;
+    } catch (err) {
+      badge.textContent = `OFFLINE FALLBACK (${err.message})`;
+      outEl.textContent = offlineFallback(persona, audience, input);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function speakOutput() {
+    const text = document.getElementById("output-text").textContent;
+    if ("speechSynthesis" in window && text) {
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
     }
   }
 
-  function setBusy(busy) {
-    document.getElementById("send-btn").disabled = busy;
-    document.getElementById("user-input").disabled = busy;
+  function copyOutput() {
+    const text = document.getElementById("output-text").textContent;
+    navigator.clipboard.writeText(text);
   }
 
-  async function submitValue(val) {
-    if (!val) return;
-    document.getElementById("quick-options").style.display = "none";
-
-    addMessage(val, "user");
-    document.getElementById("user-input").value = "";
-    conversation.push({ role: "user", content: val });
-
-    setBusy(true);
-    try {
-      const res = await fetch(WORKER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: conversation })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error?.message || "AI request failed");
-      }
-
-      const reply = data.choices[0].message.content.trim();
-      conversation.push({ role: "assistant", content: reply });
-
-      const jsonMatch = reply.match(/\{[\s\S]*"done"\s*:\s*true[\s\S]*\}/);
-      if (jsonMatch) {
-        const brief = JSON.parse(jsonMatch[0]);
-        document.getElementById("input-controls").style.display = "none";
-        addMessage("Thanks! I've compiled your technical project brief and am sending it to our developer now...", "ai");
-        await submitToEmail(brief);
-      } else {
-        addMessage(reply, "ai");
-      }
-    } catch (err) {
-      addMessage(`⚠️ Error: ${err.message}`, "ai");
-    } finally {
-      setBusy(false);
-      document.getElementById("user-input").focus();
-    }
-  }
-
-  function sendAnswer() {
-    submitValue(document.getElementById("user-input").value.trim());
-  }
-
-  async function submitToEmail(brief) {
-    const payload = {
-      access_key: WEB3FORMS_KEY,
-      subject: `New Web Dev Inquiry [${brief.project_type || "Project"}] — ${brief.contact || "New Lead"}`,
-      from_name: "AI Solutions Architect",
-      "0_Technical_Executive_Brief": brief.summary,
-      "1_Project_Type": brief.project_type,
-      "2_Core_Objective_Features": brief.objective,
-      "3_Timeline_and_Budget": brief.constraints,
-      "4_Existing_Assets": brief.materials,
-      "5_Client_Contact": brief.contact
-    };
-
-    try {
-      const res = await fetch("https://api.web3forms.com/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.success) {
-        addMessage("✅ All sent! Your technical brief and recommended approach are in our developer's inbox.", "ai");
-      } else {
-        addMessage("⚠️ Could not send the email. Check your Web3Forms key.", "ai");
-      }
-    } catch (err) {
-      addMessage("⚠️ Network error sending email. Please refresh and try again.", "ai");
-    }
-  }
-
-  // Browser Speech-to-Text
   let recognition = null;
   let isListening = false;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -220,9 +312,9 @@ Once all 5 essentials are clear, output ONLY a valid JSON block (no extra text) 
     recognition = new SpeechRecognition();
     recognition.lang = "en-US";
     recognition.interimResults = false;
-
-    recognition.onresult = (event) => {
-      submitValue(event.results[0][0].transcript);
+    recognition.onresult = (e) => {
+      document.getElementById("prompt-input").value = e.results[0][0].transcript;
+      generateResponse();
     };
     recognition.onend = () => {
       isListening = false;
@@ -232,7 +324,7 @@ Once all 5 essentials are clear, output ONLY a valid JSON block (no extra text) 
 
   function toggleMic() {
     if (!recognition) {
-      alert("Voice input isn't supported in this browser—please type your answer instead.");
+      alert("Speech recognition is not supported in this browser.");
       return;
     }
     if (isListening) {
@@ -244,9 +336,7 @@ Once all 5 essentials are clear, output ONLY a valid JSON block (no extra text) 
     }
   }
 
-  window.addEventListener("DOMContentLoaded", () => {
-    addMessage(conversation[1].content, "ai");
-  });
+  window.addEventListener("DOMContentLoaded", loadSavedKey);
 </script>
 </body>
 </html>
