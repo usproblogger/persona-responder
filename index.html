@@ -1168,31 +1168,153 @@
           if (els.speakBtnLabel) {
             els.speakBtnLabel.textContent = state.lang === 'ru-RU' ? 'Озвучить' : 'Speak';
           }
+
+          // Save to session history
+          state.history.unshift({
+            id: Date.now(),
+            persona: state.persona,
+            audience: state.audience,
+            lang: state.lang,
+            input: userText,
+            output: text,
+            source: sourceLabel,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+          state.history = state.history.slice(0, 25);
+          saveHistoryToStorage();
+          renderHistory();
+
+          setStatus(
+            state.lang === 'ru-RU'
+              ? 'Ответ готов (нажмите «Озвучить», чтобы прослушать).'
+              : 'Response ready (click Speak to listen).',
+            'ready'
+          );
+        } catch (err) {
+          console.error(err);
+          showToast(err.message || 'Failed to generate response.', 'error');
+          setStatus('Error generating response.', 'error');
+        } finally {
+          state.isGenerating = false;
+          els.generateBtn.disabled = false;
+          els.generateBtn.classList.remove('opacity-70', 'pointer-events-none');
+        }
+      }
+
       // --- Summarize Only the Current Response ---
       function summarizeOnlyResponse(text, lang) {
         if (!text) return '';
-        const sentences = text
-          .replace(/\s+/g, ' ')
+        const cleaned = text.replace(/\s+/g, ' ').trim();
+        const sentences = cleaned
           .split(/(?<=[.!?])\s+/)
           .map(s => s.trim())
           .filter(Boolean);
 
+        const prefix = lang === 'ru-RU' ? 'Кратко: ' : 'Summary: ';
+
         if (sentences.length <= 1) {
-          return text.trim();
+          return `${prefix}${cleaned}`;
         }
 
-        const first = sentences[0].replace(
-          /^(The committee notes|For the record|From an analytical standpoint|Examined through|Peace be with[^:]+:|Hold fast to[^:]+:|Комитет принимает[^:]+:|Для внесения в протокол:|С аналитической точки зрения,|Если рассмотреть)\s*/i,
-          ''
-        );
-        const coreFirst = first.charAt(0).toUpperCase() + first.slice(1);
-        const last = sentences[sentences.length - 1];
-        const prefix = lang === 'ru-RU' ? 'Краткий итог: ' : 'Summary: ';
-        return `${prefix}${coreFirst} ${last}`;
+        // Strip ceremonial intros so the summary gets straight to the core point
+        const strippedSentences = sentences.map(s =>
+          s.replace(
+            /^(The committee notes|The committee enters into the record|For the record,|From an analytical standpoint,|From a game-theoretic perspective,|From a public-policy and institutional standpoint,|Examined through [^,]+,|Analyzed through [^,]+,|Peace be with[^:]+:|Hold fast to[^:]+:|Questions of public order and governance surrounding|When weighing public decisions around|Even in something as straightforward as|Комитет принимает к сведению|Комитет фиксирует|Для внесения в протокол:|С аналитической точки зрения,|Если рассмотреть|Мир вам[^:]+:|Храни мир[^:]+:)\s*/i,
+            ''
+          ).trim()
+        ).filter(Boolean);
+
+        const firstCore = strippedSentences[0] || sentences[0];
+        const formattedFirst = firstCore.charAt(0).toUpperCase() + firstCore.slice(1);
+
+        // Pick the shortest punchy closing takeaway sentence if distinct
+        const closing = strippedSentences[strippedSentences.length - 1];
+        if (closing && closing.toLowerCase() !== firstCore.toLowerCase() && sentences.length >= 3) {
+          const formattedClosing = closing.charAt(0).toUpperCase() + closing.slice(1);
+          return `${prefix}${formattedFirst} ${formattedClosing}`;
+        }
+
+        return `${prefix}${formattedFirst}`;
       }
 
-      function handleSummarizeToggle() {
-        if (!state.lastResponse) return;
+      async function callLLMSummaryOnly(responseText, lang) {
+        const provider = state.settings.provider;
+        const apiKey = (state.settings.apiKeys[provider] || '').trim();
+        if (provider === 'offline' || !apiKey) {
+          return summarizeOnlyResponse(responseText, lang);
+        }
+
+        const sysPrompt = lang === 'ru-RU'
+          ? 'Сожми ТОЛЬКО приведённый ниже ответ в 1–2 коротких, ёмких предложения на русском языке. Не добавляй новых фактов и не обращайся к исходному вопросу. Верни только краткий итог.'
+          : 'Condense ONLY the response text provided below into 1–2 short, crisp sentences in English. Do not add new ideas or reference anything outside the text. Return only the summary.';
+
+        try {
+          if (provider === 'gemini') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: sysPrompt }] },
+                contents: [{ parts: [{ text: responseText }] }],
+                generationConfig: { temperature: 0.3, maxOutputTokens: 160 }
+              })
+            });
+            const data = await res.json();
+            const out = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (res.ok && out) return out;
+          } else if (provider === 'openai') {
+            const res = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                  { role: 'system', content: sysPrompt },
+                  { role: 'user', content: responseText }
+                ],
+                temperature: 0.3,
+                max_tokens: 160
+              })
+            });
+            const data = await res.json();
+            const out = data.choices?.[0]?.message?.content?.trim();
+            if (res.ok && out) return out;
+          } else if (provider === 'groq') {
+            const candidates = await getGroqCandidateModels(apiKey);
+            for (const modelId of candidates) {
+              const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                  model: modelId,
+                  messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: responseText }
+                  ],
+                  temperature: 0.3,
+                  max_tokens: 160
+                })
+              });
+              const data = await res.json();
+              const out = data.choices?.[0]?.message?.content?.trim();
+              if (res.ok && out) return out;
+            }
+          }
+        } catch (e) {
+          console.warn('LLM summary fallback:', e);
+        }
+        return summarizeOnlyResponse(responseText, lang);
+      }
+
+      async function handleSummarizeToggle() {
+        if (!state.lastResponse) {
+          showToast(
+            state.lang === 'ru-RU' ? 'Сначала сгенерируйте ответ.' : 'Generate a response first.',
+            'info'
+          );
+          return;
+        }
         stopSpeaking();
 
         if (state.isShowingSummary) {
@@ -1205,8 +1327,14 @@
         }
 
         if (!state.lastSummary) {
-          state.lastSummary = summarizeOnlyResponse(state.lastResponse, state.lang);
+          els.summarizeBtn.disabled = true;
+          if (els.summarizeBtnLabel) {
+            els.summarizeBtnLabel.textContent = state.lang === 'ru-RU' ? 'Сжимаю...' : 'Summarizing...';
+          }
+          state.lastSummary = await callLLMSummaryOnly(state.lastResponse, state.lang);
+          els.summarizeBtn.disabled = false;
         }
+
         state.isShowingSummary = true;
         els.responseOutput.textContent = state.lastSummary;
         if (els.summarizeBtnLabel) {
