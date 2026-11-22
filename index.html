@@ -332,8 +332,8 @@
           <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
             <input type="radio" name="apiProvider" value="groq" class="mt-1 text-indigo-600 focus:ring-indigo-500" />
             <div>
-              <div class="text-sm font-semibold">Groq (<code class="text-xs">llama-3.3-70b-versatile</code>)</div>
-              <div class="text-xs text-slate-500 dark:text-slate-400">Ultra-low latency inference for real-time voice conversations.</div>
+              <div class="text-sm font-semibold">Groq (Auto-detects your active free model)</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">Ultra-low latency inference; automatically selects the best available model on your key.</div>
             </div>
           </label>
         </div>
@@ -359,6 +359,14 @@
           Keys are saved solely in <code>localStorage</code> on your device and sent directly to your chosen provider.
         </p>
       </div>
+
+      <!-- Auto-Fallback Toggle -->
+      <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 cursor-pointer">
+        <input id="autoFallbackCheckbox" type="checkbox" checked class="rounded text-indigo-600 focus:ring-indigo-500" />
+        <span class="text-xs text-slate-700 dark:text-slate-300">
+          Automatically fall back to <strong>Offline Synthesis</strong> if an API key hits quota, billing, or model errors.
+        </span>
+      </label>
 
       <!-- Modal Footer -->
       <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -396,6 +404,7 @@
         lastResponse: '',
         settings: {
           provider: 'offline',    // 'offline' | 'gemini' | 'openai' | 'groq'
+          autoFallback: true,
           apiKeys: {
             gemini: '',
             openai: '',
@@ -476,6 +485,7 @@
         apiProviderRadios: document.querySelectorAll('input[name="apiProvider"]'),
         apiKeyGroup: document.getElementById('apiKeyGroup'),
         apiKeyInput: document.getElementById('apiKeyInput'),
+        autoFallbackCheckbox: document.getElementById('autoFallbackCheckbox'),
         toggleKeyVisibilityBtn: document.getElementById('toggleKeyVisibilityBtn'),
         themeToggleBtn: document.getElementById('themeToggleBtn'),
         toastContainer: document.getElementById('toastContainer')
@@ -497,7 +507,7 @@
           toast.style.opacity = '0';
           toast.style.transform = 'translateY(6px)';
           setTimeout(() => toast.remove(), 220);
-        }, 3200);
+        }, 3800);
       }
 
       // --- Theme Management ---
@@ -521,6 +531,7 @@
             const parsed = JSON.parse(rawSettings);
             state.settings = {
               provider: parsed.provider || 'offline',
+              autoFallback: parsed.autoFallback !== undefined ? Boolean(parsed.autoFallback) : true,
               apiKeys: {
                 gemini: parsed.apiKeys?.gemini || '',
                 openai: parsed.apiKeys?.openai || '',
@@ -608,7 +619,7 @@
           offline: 'Offline Demo',
           gemini: 'Gemini 2.5 Flash',
           openai: 'OpenAI GPT-4o-mini',
-          groq: 'Groq Llama 3.3'
+          groq: 'Groq Cloud'
         };
         els.providerBadgeLabel.textContent = providerNames[state.settings.provider] || 'Offline Demo';
 
@@ -739,10 +750,9 @@
       }
 
       // --- Built-In Topic-Aware Offline Synthesis Engine (Zero API Key Required) ---
-      function detectTopicContext(cleanText, lang) {
+      function detectTopicContext(cleanText) {
         const lower = cleanText.toLowerCase();
 
-        // Extract top distinctive keywords/nouns for concrete grounding
         const stopWords = new Set([
           'the','and','for','that','this','with','from','have','what','when','where','which','who','whom',
           'their','there','they','them','these','those','about','into','over','after','before','between',
@@ -774,7 +784,6 @@
           ? uniqueTerms.join(', ')
           : (cleanText.length > 75 ? cleanText.slice(0, 72).replace(/\s+\S*$/, '') + '...' : cleanText);
 
-        // Domain classification so games, policymaking, boundaries, etc. get distinct framing
         if (/(checker|chess|board|game|move|king|piece|play|match|rule|turn|шашк|шахмат|игр|ход|доск|дамк|парти)/i.test(lower)) {
           return { domain: 'strategy_game', keyPhrase };
         }
@@ -792,7 +801,7 @@
 
       function generateOfflineResponse(userText, persona, audience, lang) {
         const clean = userText.trim();
-        const { domain, keyPhrase } = detectTopicContext(clean, lang);
+        const { domain, keyPhrase } = detectTopicContext(clean);
 
         if (lang === 'ru-RU') {
           if (persona === 'priest') {
@@ -827,7 +836,6 @@
               : `Для внесения в протокол: заявленная позиция по вопросу «${keyPhrase}» подтверждает приоритет личной ответственности и оценки конкретных жизненных обстоятельств. Комитет отмечает обоснованность отказа от подмены индивидуального суждения внешними штампами.`;
           }
 
-          // professor (ru-RU)
           if (domain === 'strategy_game') {
             return audience === 'opponents'
               ? `С аналитической точки зрения, обсуждение темы «${keyPhrase}» — это вопрос теории игр и соблюдения формальных правил взаимодействия. Когда оппоненты подменяют логику позиции и расчёт вариантов эмоциональными претензиями, они нарушают базовую структуру игры. Рациональная стратегия здесь — опираться исключительно на правила доски и объективное положение фигур.`
@@ -876,7 +884,6 @@
             : `For the record, the statement submitted regarding ${keyPhrase} establishes a coherent distinction between personal self-direction and external collective scripts. Maintaining clear personal jurisdiction over one's decisions and local realities is entered as sound and sufficient.`;
         }
 
-        // professor (en-US)
         if (domain === 'strategy_game') {
           return audience === 'opponents'
             ? `From a game-theoretic perspective, a dispute over ${keyPhrase} comes down to formal rules, legal moves, and positional evaluation—not rhetoric. When opponents substitute commentary or ego for actual board logic, they step outside the analytical structure of the game. The cleanest response is to let the rules and the objective position settle the argument.`
@@ -892,13 +899,40 @@
           : `Examined through cognitive psychology and institutional analysis, your observation regarding ${keyPhrase} highlights the difference between authentic self-regulation and external conformity. Personal resilience improves when you evaluate choices against your actual environment and lived evidence rather than borrowed clichés.`;
       }
 
+      // --- Resolve Available Groq Model Dynamically ---
+      async function resolveGroqModel(apiKey) {
+        try {
+          const res = await fetch('https://api.groq.com/openai/v1/models', {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+          });
+          if (!res.ok) return 'llama-3.1-8b-instant';
+          const data = await res.json();
+          const available = (data.data || []).map(m => m.id);
+          const preferredOrder = [
+            'llama-3.3-70b-versatile',
+            'llama-3.1-8b-instant',
+            'meta-llama/llama-4-scout-17b-16e-instruct',
+            'qwen/qwen3-32b',
+            'gemma2-9b-it'
+          ];
+          for (const candidate of preferredOrder) {
+            if (available.includes(candidate)) return candidate;
+          }
+          // Pick any non-whisper, non-guard text chat model available on the key
+          const fallbackChat = available.find(id => !/whisper|guard|tts|safeguard/i.test(id));
+          return fallbackChat || 'llama-3.1-8b-instant';
+        } catch (e) {
+          return 'llama-3.1-8b-instant';
+        }
+      }
+
       // --- Multi-Provider LLM API Callers ---
       async function callLLMProvider(userText) {
         const provider = state.settings.provider;
         const apiKey = (state.settings.apiKeys[provider] || '').trim();
 
         if (provider === 'offline') {
-          await new Promise(r => setTimeout(r, 320)); // Natural micro-pause
+          await new Promise(r => setTimeout(r, 300));
           return {
             text: generateOfflineResponse(userText, state.persona, state.audience, state.lang),
             sourceLabel: 'Offline Synthesis'
@@ -906,84 +940,103 @@
         }
 
         if (!apiKey) {
+          if (state.settings.autoFallback) {
+            showToast(`No ${provider.toUpperCase()} key entered — using Offline Synthesis.`, 'info');
+            return {
+              text: generateOfflineResponse(userText, state.persona, state.audience, state.lang),
+              sourceLabel: 'Offline Synthesis (No Key)'
+            };
+          }
           throw new Error(`Missing API key for ${provider.toUpperCase()}. Open Settings to add a key or switch to Offline Demo Mode.`);
         }
 
         const systemPrompt = buildSystemPrompt(state.persona, state.audience, state.lang);
 
-        if (provider === 'gemini') {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-              contents: [{ parts: [{ text: userText }] }],
-              generationConfig: { temperature: 0.7, maxOutputTokens: 450 }
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.error?.message || `Gemini API error (${res.status})`);
+        try {
+          if (provider === 'gemini') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ parts: [{ text: userText }] }],
+                generationConfig: { temperature: 0.7, maxOutputTokens: 450 }
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error?.message || `Gemini API error (${res.status})`);
+            }
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (!text) throw new Error('Empty response returned from Gemini.');
+            return { text, sourceLabel: 'Gemini 2.5 Flash' };
           }
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          if (!text) throw new Error('Empty response returned from Gemini.');
-          return { text, sourceLabel: 'Gemini 2.5 Flash' };
-        }
 
-        if (provider === 'openai') {
-          const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userText }
-              ],
-              temperature: 0.7,
-              max_tokens: 450
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.error?.message || `OpenAI API error (${res.status})`);
+          if (provider === 'openai') {
+            const res = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userText }
+                ],
+                temperature: 0.7,
+                max_tokens: 450
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error?.message || `OpenAI API error (${res.status})`);
+            }
+            const text = data.choices?.[0]?.message?.content?.trim();
+            if (!text) throw new Error('Empty response returned from OpenAI.');
+            return { text, sourceLabel: 'OpenAI GPT-4o-mini' };
           }
-          const text = data.choices?.[0]?.message?.content?.trim();
-          if (!text) throw new Error('Empty response returned from OpenAI.');
-          return { text, sourceLabel: 'OpenAI GPT-4o-mini' };
-        }
 
-        if (provider === 'groq') {
-          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userText }
-              ],
-              temperature: 0.7,
-              max_tokens: 450
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.error?.message || `Groq API error (${res.status})`);
+          if (provider === 'groq') {
+            const modelId = await resolveGroqModel(apiKey);
+            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+              },
+              body: JSON.stringify({
+                model: modelId,
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userText }
+                ],
+                temperature: 0.7,
+                max_tokens: 450
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error?.message || `Groq API error (${res.status})`);
+            }
+            const text = data.choices?.[0]?.message?.content?.trim();
+            if (!text) throw new Error('Empty response returned from Groq.');
+            return { text, sourceLabel: `Groq (${modelId})` };
           }
-          const text = data.choices?.[0]?.message?.content?.trim();
-          if (!text) throw new Error('Empty response returned from Groq.');
-          return { text, sourceLabel: 'Groq Llama 3.3' };
-        }
 
-        throw new Error('Unknown provider selected.');
+          throw new Error('Unknown provider selected.');
+        } catch (apiErr) {
+          if (state.settings.autoFallback) {
+            showToast(`${provider.toUpperCase()} unavailable (${apiErr.message}) — used Offline Synthesis.`, 'info');
+            return {
+              text: generateOfflineResponse(userText, state.persona, state.audience, state.lang),
+              sourceLabel: 'Offline Synthesis (Fallback)'
+            };
+          }
+          throw apiErr;
+        }
       }
 
       // --- Text-to-Speech (SpeechSynthesis) ---
@@ -997,17 +1050,14 @@
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = lang;
 
-        // Apply persona pitch/rate calibration
         const ttsCfg = PERSONA_CONFIG[persona]?.tts || { rate: 1.0, pitch: 1.0 };
         utterance.rate = ttsCfg.rate;
         utterance.pitch = ttsCfg.pitch;
 
-        // Prefer matching language voice if available
         const voices = window.speechSynthesis.getVoices();
         const langPrefix = lang.split('-')[0].toLowerCase();
         const matchingVoices = voices.filter(v => v.lang.toLowerCase().startsWith(langPrefix));
         if (matchingVoices.length > 0) {
-          // Pick a natural or non-compact voice when available
           const preferred = matchingVoices.find(v => /natural|google|daniel|alex|yuri|milena|samantha/i.test(v.name)) || matchingVoices[0];
           utterance.voice = preferred;
         }
@@ -1077,7 +1127,6 @@
           const { text, sourceLabel } = await callLLMProvider(userText);
           state.lastResponse = text;
 
-          // Update Response Badges & Output
           const pCfg = PERSONA_CONFIG[state.persona];
           els.responsePersonaBadge.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${pCfg.badgeClass}`;
           els.responsePersonaBadge.textContent = pCfg.label[state.lang] || pCfg.label['en-US'];
@@ -1091,7 +1140,6 @@
             els.speakBtnLabel.textContent = state.lang === 'ru-RU' ? 'Озвучить' : 'Speak';
           }
 
-          // Save to Session History
           state.history.unshift({
             id: Date.now(),
             persona: state.persona,
@@ -1121,7 +1169,7 @@
         }
       }
 
-      // --- Clipboard Helper (iframe-safe fallback included) ---
+      // --- Clipboard Helper ---
       function copyTextToClipboard(text) {
         if (!text) return;
         const textarea = document.createElement('textarea');
@@ -1207,6 +1255,7 @@
         els.apiProviderRadios.forEach(radio => {
           radio.checked = radio.value === currentProvider;
         });
+        els.autoFallbackCheckbox.checked = state.settings.autoFallback;
         syncSettingsModalKeyField(currentProvider);
         els.settingsModal.classList.remove('hidden');
       }
@@ -1239,6 +1288,7 @@
         });
 
         state.settings.provider = selectedProvider;
+        state.settings.autoFallback = els.autoFallbackCheckbox.checked;
         if (selectedProvider !== 'offline') {
           state.settings.apiKeys[selectedProvider] = els.apiKeyInput.value.trim();
         }
@@ -1251,7 +1301,6 @@
 
       // --- Bind All Events ---
       function bindEvents() {
-        // Persona Selection
         els.personaCards.forEach(card => {
           card.addEventListener('click', () => {
             state.persona = card.dataset.persona;
@@ -1259,7 +1308,6 @@
           });
         });
 
-        // Audience Toggle
         els.audienceBtns.forEach(btn => {
           btn.addEventListener('click', () => {
             state.audience = btn.dataset.audience;
@@ -1267,7 +1315,6 @@
           });
         });
 
-        // Language Toggle
         els.langBtns.forEach(btn => {
           btn.addEventListener('click', () => {
             state.lang = btn.dataset.lang;
@@ -1278,7 +1325,6 @@
           });
         });
 
-        // Mic & Text Controls
         els.micBtn.addEventListener('click', toggleListening);
         els.transcriptInput.addEventListener('input', () => {
           finalTranscriptBuffer = els.transcriptInput.value.trim();
@@ -1297,10 +1343,8 @@
           els.transcriptInput.focus();
         });
 
-        // Generate Response
         els.generateBtn.addEventListener('click', handleGenerate);
 
-        // TTS & Copy Controls
         els.speakBtn.addEventListener('click', () => {
           if (state.lastResponse) {
             speakResponse(state.lastResponse, state.persona, state.lang);
@@ -1309,7 +1353,6 @@
         els.stopSpeakBtn.addEventListener('click', stopSpeaking);
         els.copyBtn.addEventListener('click', () => copyTextToClipboard(state.lastResponse));
 
-        // History Clear
         els.clearHistoryBtn.addEventListener('click', () => {
           state.history = [];
           saveHistoryToStorage();
@@ -1317,7 +1360,6 @@
           showToast('History cleared.', 'info');
         });
 
-        // Settings Modal
         els.openSettingsBtn.addEventListener('click', openSettingsModal);
         els.providerBadgeBtn.addEventListener('click', openSettingsModal);
         els.closeSettingsBtn.addEventListener('click', closeSettingsModal);
@@ -1338,7 +1380,6 @@
           if (e.target === els.settingsModal) closeSettingsModal();
         });
 
-        // Theme Toggle
         els.themeToggleBtn.addEventListener('click', toggleTheme);
       }
 
@@ -1354,7 +1395,6 @@
         if (window.lucide) {
           window.lucide.createIcons();
         }
-        // Pre-warm speechSynthesis voices list
         if ('speechSynthesis' in window) {
           window.speechSynthesis.getVoices();
           window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
