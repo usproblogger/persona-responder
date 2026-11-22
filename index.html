@@ -322,4 +322,1099 @@
           </label>
 
           <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
-            <input type="radio" nam
+            <input type="radio" name="apiProvider" value="openai" class="mt-1 text-indigo-600 focus:ring-indigo-500" />
+            <div>
+              <div class="text-sm font-semibold">OpenAI (<code class="text-xs">gpt-4o-mini</code>)</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">Reliable, nuanced tone control across formal and reflective registers.</div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
+            <input type="radio" name="apiProvider" value="groq" class="mt-1 text-indigo-600 focus:ring-indigo-500" />
+            <div>
+              <div class="text-sm font-semibold">Groq (Auto-detects your active free model)</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">Ultra-low latency inference; automatically selects the best available model on your key.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- API Key Field -->
+      <div id="apiKeyGroup" class="space-y-1.5">
+        <label for="apiKeyInput" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          API Key (Stored Locally in Your Browser)
+        </label>
+        <div class="relative">
+          <input
+            id="apiKeyInput"
+            type="password"
+            name="api_token_field"
+            autocomplete="off"
+            data-lpignore="true"
+            placeholder="Paste your API key here..."
+            class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button id="toggleKeyVisibilityBtn" type="button" aria-label="Show or hide API key" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <i data-lucide="eye" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+          Keys are saved solely in <code>localStorage</code> on your device and sent directly to your chosen provider.
+        </p>
+      </div>
+
+      <!-- Auto-Fallback Toggle -->
+      <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 cursor-pointer">
+        <input id="autoFallbackCheckbox" type="checkbox" checked class="rounded text-indigo-600 focus:ring-indigo-500" />
+        <span class="text-xs text-slate-700 dark:text-slate-300">
+          Automatically fall back to <strong>Offline Synthesis</strong> if an API key hits quota, billing, or model errors.
+        </span>
+      </label>
+
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <button id="cancelSettingsBtn" type="button" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          Cancel
+        </button>
+        <button id="saveSettingsBtn" type="button" class="px-5 py-2 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Persona Voice Responder
+     * Single-file application integrating Web Speech API (STT), multi-provider LLM + offline synthesis,
+     * persona-calibrated SpeechSynthesis (TTS), and localStorage persistence.
+     */
+    (function () {
+      // --- Storage Keys ---
+      const STORAGE_KEYS = {
+        SETTINGS: 'pvr_settings_v1',
+        HISTORY: 'pvr_history_v1',
+        THEME: 'pvr_theme_v1'
+      };
+
+      // --- Application State ---
+      const state = {
+        persona: 'priest',        // 'priest' | 'senate' | 'professor'
+        audience: 'self',         // 'self' | 'opponents'
+        lang: 'en-US',            // 'en-US' | 'ru-RU'
+        isListening: false,
+        isGenerating: false,
+        lastResponse: '',
+        settings: {
+          provider: 'offline',    // 'offline' | 'gemini' | 'openai' | 'groq'
+          autoFallback: true,
+          apiKeys: {
+            gemini: '',
+            openai: '',
+            groq: ''
+          }
+        },
+        history: []
+      };
+
+      // --- Persona Metadata & TTS Cadence Tuning ---
+      const PERSONA_CONFIG = {
+        priest: {
+          label: { 'en-US': 'Priest', 'ru-RU': 'Священник' },
+          badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+          tts: { rate: 0.90, pitch: 0.88 },
+          cadenceLabel: 'TTS: Calm, warm cadence (0.90x)'
+        },
+        senate: {
+          label: { 'en-US': 'Senatorial Hearing', 'ru-RU': 'Сенаторское слушание' },
+          badgeClass: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200',
+          tts: { rate: 0.96, pitch: 0.94 },
+          cadenceLabel: 'TTS: Formal measured cadence (0.96x)'
+        },
+        professor: {
+          label: { 'en-US': 'Professor', 'ru-RU': 'Профессор' },
+          badgeClass: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
+          tts: { rate: 1.03, pitch: 1.02 },
+          cadenceLabel: 'TTS: Crisp articulate cadence (1.03x)'
+        }
+      };
+
+      const AUDIENCE_LABELS = {
+        self: { 'en-US': 'To Yourself', 'ru-RU': 'К себе' },
+        opponents: { 'en-US': 'To Opponents', 'ru-RU': 'К оппонентам' }
+      };
+
+      const EXAMPLE_INPUTS = {
+        'en-US': "People constantly confuse their personal opinions with the voice of an entire group or institution, and then try to lecture others based on choices that didn't even work out in their own lives. I speak for myself and my own ground—not as a representative of everyone else.",
+        'ru-RU': "Люди постоянно путают своё личное мнение с голосом целой группы или государства, а потом пытаются учить других жизни, опираясь на собственный тяжёлый опыт. Я говорю только от своего имени и за свой путь, не присваивая себе чужих полномочий."
+      };
+
+      // --- DOM Elements ---
+      const els = {
+        personaCards: document.querySelectorAll('.persona-card'),
+        audienceBtns: document.querySelectorAll('.audience-btn'),
+        langBtns: document.querySelectorAll('.lang-btn'),
+        cadenceHint: document.getElementById('cadenceHint'),
+        micBtn: document.getElementById('micBtn'),
+        micBtnLabel: document.getElementById('micBtnLabel'),
+        micIcon: document.getElementById('micIcon'),
+        micPulseRing: document.getElementById('micPulseRing'),
+        statusDot: document.getElementById('statusDot'),
+        statusText: document.getElementById('statusText'),
+        transcriptInput: document.getElementById('transcriptInput'),
+        interimPreview: document.getElementById('interimPreview'),
+        loadSampleBtn: document.getElementById('loadSampleBtn'),
+        clearInputBtn: document.getElementById('clearInputBtn'),
+        generateBtn: document.getElementById('generateBtn'),
+        generateBtnText: document.getElementById('generateBtnText'),
+        responsePersonaBadge: document.getElementById('responsePersonaBadge'),
+        responseAudienceBadge: document.getElementById('responseAudienceBadge'),
+        responseModeBadge: document.getElementById('responseModeBadge'),
+        responseOutput: document.getElementById('responseOutput'),
+        speakBtn: document.getElementById('speakBtn'),
+        speakBtnLabel: document.getElementById('speakBtnLabel'),
+        stopSpeakBtn: document.getElementById('stopSpeakBtn'),
+        copyBtn: document.getElementById('copyBtn'),
+        historyList: document.getElementById('historyList'),
+        historyCount: document.getElementById('historyCount'),
+        clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+        providerBadgeBtn: document.getElementById('providerBadgeBtn'),
+        providerBadgeLabel: document.getElementById('providerBadgeLabel'),
+        openSettingsBtn: document.getElementById('openSettingsBtn'),
+        settingsModal: document.getElementById('settingsModal'),
+        closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+        cancelSettingsBtn: document.getElementById('cancelSettingsBtn'),
+        saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+        apiProviderRadios: document.querySelectorAll('input[name="apiProvider"]'),
+        apiKeyGroup: document.getElementById('apiKeyGroup'),
+        apiKeyInput: document.getElementById('apiKeyInput'),
+        autoFallbackCheckbox: document.getElementById('autoFallbackCheckbox'),
+        toggleKeyVisibilityBtn: document.getElementById('toggleKeyVisibilityBtn'),
+        themeToggleBtn: document.getElementById('themeToggleBtn'),
+        toastContainer: document.getElementById('toastContainer')
+      };
+
+      // --- Utility: Non-Blocking Toast Message ---
+      function showToast(message, type = 'info') {
+        const colors = {
+          info: 'bg-slate-900 text-white dark:bg-slate-800 border-slate-700',
+          success: 'bg-emerald-600 text-white border-emerald-500',
+          error: 'bg-rose-600 text-white border-rose-500'
+        };
+        const toast = document.createElement('div');
+        toast.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium transition-all duration-200 ${colors[type] || colors.info}`;
+        toast.textContent = message;
+        els.toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(6px)';
+          setTimeout(() => toast.remove(), 220);
+        }, 3800);
+      }
+
+      // --- Theme Management ---
+      function initTheme() {
+        const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+        document.documentElement.classList.toggle('dark', isDark);
+      }
+
+      function toggleTheme() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
+      }
+
+      // --- Load & Save Settings / History ---
+      function loadPersistedData() {
+        try {
+          const rawSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+          if (rawSettings) {
+            const parsed = JSON.parse(rawSettings);
+            state.settings = {
+              provider: parsed.provider || 'offline',
+              autoFallback: parsed.autoFallback !== undefined ? Boolean(parsed.autoFallback) : true,
+              apiKeys: {
+                gemini: parsed.apiKeys?.gemini || '',
+                openai: parsed.apiKeys?.openai || '',
+                groq: parsed.apiKeys?.groq || ''
+              }
+            };
+          }
+        } catch (e) {
+          console.warn('Could not load settings from localStorage:', e);
+        }
+
+        try {
+          const rawHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
+          if (rawHistory) {
+            const parsed = JSON.parse(rawHistory);
+            if (Array.isArray(parsed)) {
+              state.history = parsed;
+            }
+          }
+        } catch (e) {
+          console.warn('Could not load history from localStorage:', e);
+        }
+      }
+
+      function saveSettingsToStorage() {
+        try {
+          localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
+        } catch (e) {
+          showToast('Unable to save settings in browser storage.', 'error');
+        }
+      }
+
+      function saveHistoryToStorage() {
+        try {
+          localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(state.history.slice(0, 25)));
+        } catch (e) {
+          console.warn('Could not save history:', e);
+        }
+      }
+
+      // --- UI Synchronization ---
+      function updateUI() {
+        // 1. Persona Cards
+        els.personaCards.forEach(card => {
+          const isSelected = card.dataset.persona === state.persona;
+          const checkBadge = card.querySelector('.persona-check');
+          if (isSelected) {
+            card.classList.add('border-2', 'border-indigo-600', 'bg-indigo-50/60', 'dark:bg-indigo-950/30', 'dark:border-indigo-500');
+            card.classList.remove('border', 'border-slate-200', 'dark:border-slate-800', 'bg-white', 'dark:bg-slate-900');
+            checkBadge.classList.remove('hidden');
+            checkBadge.classList.add('inline-flex');
+          } else {
+            card.classList.remove('border-2', 'border-indigo-600', 'bg-indigo-50/60', 'dark:bg-indigo-950/30', 'dark:border-indigo-500');
+            card.classList.add('border', 'border-slate-200', 'dark:border-slate-800', 'bg-white', 'dark:bg-slate-900');
+            checkBadge.classList.add('hidden');
+            checkBadge.classList.remove('inline-flex');
+          }
+        });
+
+        // 2. Audience Buttons
+        els.audienceBtns.forEach(btn => {
+          const active = btn.dataset.audience === state.audience;
+          btn.className = active
+            ? 'audience-btn py-2 px-3 rounded-lg text-sm font-medium bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm transition flex items-center justify-center gap-1.5'
+            : 'audience-btn py-2 px-3 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition flex items-center justify-center gap-1.5';
+        });
+
+        // 3. Language Buttons
+        els.langBtns.forEach(btn => {
+          const active = btn.dataset.lang === state.lang;
+          btn.className = active
+            ? 'lang-btn py-2 px-3 rounded-lg text-sm font-medium bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm transition flex items-center justify-center gap-1.5'
+            : 'lang-btn py-2 px-3 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition flex items-center justify-center gap-1.5';
+        });
+
+        // 4. Cadence Hint & Generate Button Text
+        const pCfg = PERSONA_CONFIG[state.persona];
+        els.cadenceHint.textContent = pCfg.cadenceLabel;
+        els.generateBtnText.textContent = state.lang === 'ru-RU'
+          ? `Ответить: ${pCfg.label['ru-RU']}`
+          : `Respond as ${pCfg.label['en-US']}`;
+
+        // 5. Provider Badge
+        const providerNames = {
+          offline: 'Offline Demo',
+          gemini: 'Gemini 2.5 Flash',
+          openai: 'OpenAI GPT-4o-mini',
+          groq: 'Groq Cloud'
+        };
+        els.providerBadgeLabel.textContent = providerNames[state.settings.provider] || 'Offline Demo';
+
+        // 6. Placeholder localization
+        els.transcriptInput.placeholder = state.lang === 'ru-RU'
+          ? 'Нажмите «Говорить» для голосового ввода или введите/отредактируйте текст здесь...'
+          : "Click 'Start Speaking' to dictate via microphone, or type/edit your thoughts directly here...";
+      }
+
+      // --- Web Speech API (Speech-to-Text) ---
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognition = null;
+      let finalTranscriptBuffer = '';
+
+      function setupSpeechRecognition() {
+        if (!SpeechRecognition) {
+          setStatus('Speech recognition not supported in this browser — use text input below.', 'warn');
+          els.micBtn.classList.add('opacity-60');
+          return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = state.lang;
+
+        recognition.onstart = () => {
+          state.isListening = true;
+          finalTranscriptBuffer = els.transcriptInput.value.trim();
+          els.micPulseRing.classList.remove('hidden');
+          els.micBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+          els.micBtn.classList.add('bg-rose-600', 'hover:bg-rose-700');
+          els.micBtnLabel.textContent = state.lang === 'ru-RU' ? 'Остановить' : 'Stop Listening';
+          setStatus(state.lang === 'ru-RU' ? 'Слушаю микрофон...' : 'Listening to microphone...', 'listening');
+        };
+
+        recognition.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscriptBuffer = (finalTranscriptBuffer ? finalTranscriptBuffer + ' ' : '') + transcript.trim();
+            } else {
+              interim += transcript;
+            }
+          }
+
+          els.transcriptInput.value = finalTranscriptBuffer;
+          if (interim.trim()) {
+            els.interimPreview.classList.remove('hidden');
+            els.interimPreview.textContent = `... ${interim.trim()}`;
+          } else {
+            els.interimPreview.classList.add('hidden');
+            els.interimPreview.textContent = '';
+          }
+        };
+
+        recognition.onerror = (event) => {
+          console.warn('SpeechRecognition error:', event.error);
+          if (event.error === 'not-allowed') {
+            showToast('Microphone permission denied. Please allow mic access or type directly.', 'error');
+            setStatus('Microphone permission denied.', 'error');
+          } else if (event.error !== 'aborted') {
+            setStatus(`Voice input notice: ${event.error}`, 'warn');
+          }
+        };
+
+        recognition.onend = () => {
+          state.isListening = false;
+          els.micPulseRing.classList.add('hidden');
+          els.micBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+          els.micBtn.classList.remove('bg-rose-600', 'hover:bg-rose-700');
+          els.micBtnLabel.textContent = state.lang === 'ru-RU' ? 'Говорить' : 'Start Speaking';
+          els.interimPreview.classList.add('hidden');
+          setStatus(state.lang === 'ru-RU' ? 'Запись завершена. Можно редактировать или отправить.' : 'Recording stopped. Edit text or click Respond.', 'ready');
+        };
+      }
+
+      function toggleListening() {
+        if (!recognition) {
+          showToast('Your browser does not support Web Speech API. Please type your input.', 'error');
+          els.transcriptInput.focus();
+          return;
+        }
+        if (state.isListening) {
+          recognition.stop();
+        } else {
+          window.speechSynthesis && window.speechSynthesis.cancel();
+          recognition.lang = state.lang;
+          try {
+            recognition.start();
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+      }
+
+      function setStatus(text, mode = 'ready') {
+        els.statusText.textContent = text;
+        const dotColors = {
+          ready: 'bg-slate-400',
+          listening: 'bg-rose-500 animate-ping',
+          thinking: 'bg-indigo-500 animate-pulse',
+          warn: 'bg-amber-500',
+          error: 'bg-rose-600'
+        };
+        els.statusDot.className = `w-2 h-2 rounded-full ${dotColors[mode] || dotColors.ready}`;
+      }
+
+      // --- Prompt Construction ---
+      function buildSystemPrompt(persona, audience, lang) {
+        const isRu = lang === 'ru-RU';
+        const langDirective = isRu
+          ? 'Respond strictly in natural, articulate Russian.'
+          : 'Respond strictly in natural, articulate English.';
+
+        const audienceDirective = audience === 'opponents'
+          ? 'Address the message directly to external critics, meddlers, or opponents—firmly setting boundaries, rejecting unsolicited lectures or group labels, and engaging directly with the exact topic raised without hostility.'
+          : 'Address the message directly to the speaker themselves—offering grounding, clarity, and practical perspective on the exact subject they raised.';
+
+        const personaDirectives = {
+          priest: 'Adopt the voice of a wise, grounded parish priest. Engage directly with the specific subject, activity, or dilemma mentioned by the user (whether a simple game, policy, work, or personal boundaries). Speak with pastoral warmth, moral clarity, and discernment about conscience, stewardship, and peace. Avoid generic boilerplate; keep it human, concrete, and concise (3–5 sentences).',
+          senate: 'Adopt the formal, procedural tone of a U.S. Senate committee chair entering findings into the official record. Directly address the specific subject, mechanism, or policy issue described in the testimony using phrases such as "The committee notes...", "For the record...", and "Accordingly...". Tailor the procedural analysis to the actual topic rather than generic templates (3–5 sentences).',
+          professor: 'Adopt the voice of a seasoned university professor analyzing the exact topic, game, policy, or dynamic the user brought up. Examine its specific mechanics, incentives, trade-offs, and cognitive or institutional patterns clearly and concretely without lecturing or relying on generic stock phrases (3–5 sentences).'
+        };
+
+        return `${personaDirectives[persona]} ${audienceDirective} ${langDirective} Engage directly with the concrete substance of the user's input. Output only the spoken response text without markdown headers or bullet points.`;
+      }
+
+      // --- Built-In Topic-Aware Offline Synthesis Engine (Zero API Key Required) ---
+      function detectTopicContext(cleanText) {
+        const lower = cleanText.toLowerCase();
+
+        const stopWords = new Set([
+          'the','and','for','that','this','with','from','have','what','when','where','which','who','whom',
+          'their','there','they','them','these','those','about','into','over','after','before','between',
+          'just','like','more','most','some','such','than','then','very','will','would','could','should',
+          'being','been','were','was','are','you','your','yours','our','ours','my','mine','his','her','its',
+          'one','two','people','person','thing','things','make','making','talk','talking','say','says','said',
+          'что','как','это','так','для','или','при','про','без','над','под','после','перед','между',
+          'они','она','оно','мы','вы','вас','вам','нами','вами','их','его','её','свой','свои','своих',
+          'люди','человек','вещи','говорить','говорят','сказал','просто','очень','быть','есть','было','будет'
+        ]);
+
+        const tokens = cleanText
+          .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+          .split(/\s+/)
+          .filter(w => w.length > 3 && !stopWords.has(w.toLowerCase()));
+
+        const uniqueTerms = [];
+        const seen = new Set();
+        for (const t of tokens) {
+          const key = t.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueTerms.push(t);
+          }
+          if (uniqueTerms.length >= 4) break;
+        }
+
+        const keyPhrase = uniqueTerms.length > 0
+          ? uniqueTerms.join(', ')
+          : (cleanText.length > 75 ? cleanText.slice(0, 72).replace(/\s+\S*$/, '') + '...' : cleanText);
+
+        if (/\b(checker|checkers|chess|board game|king me|opponent|match|шашк|шахмат|доск|дамк|парти)\b/i.test(lower)) {
+          return { domain: 'strategy_game', keyPhrase };
+        }
+        if (/\b(policy|policies|law|laws|senate|congress|government|regulat|tax|budget|public|vote|institution|state|закон|политик|государств|бюджет|налог|власт|регулир|институт|законопроект)\b/i.test(lower)) {
+          return { domain: 'policy', keyPhrase };
+        }
+        if (/\b(job|career|city|town|market|work|money|business|trade|компан|работ|город|рынок|бизнес|карьер|деньг)\b/i.test(lower)) {
+          return { domain: 'economics_work', keyPhrase };
+        }
+        if (/\b(group|crowd|label|family|parent|boundary|boundaries|neighbor|alone|myself|групп|толп|ярлык|семь|родител|границ|сосед|сам)\b/i.test(lower)) {
+          return { domain: 'boundaries_identity', keyPhrase };
+        }
+        return { domain: 'general', keyPhrase };
+      }
+
+      function generateOfflineResponse(userText, persona, audience, lang) {
+        const clean = userText.trim();
+        const { domain, keyPhrase } = detectTopicContext(clean);
+
+        if (lang === 'ru-RU') {
+          if (persona === 'priest') {
+            if (domain === 'strategy_game') {
+              return audience === 'opponents'
+                ? `Мир вам и ясность ума за этой доской: даже в таком деле, как ${keyPhrase}, видна природа человека — кто играет честно по правилам, а кто ищет лишь суетного превосходства. Не превращайте простую партию в повод для гордыни или пустых поучений. Пусть каждый отвечает за свой ход в тишине совести и уважении к сопернику.`
+                : `Даже в таком спокойном занятии, как ${keyPhrase}, открывается хороший урок для души: не спешить, видеть последствия каждого шага и не поддаваться чужой суете. Внимание, терпение и трезвость ума помогают сохранять мир внутри, за какой бы доской или делом ты ни находился. Делай свой верный ход спокойно и с ясным сердцем.`;
+            }
+            if (domain === 'policy') {
+              return audience === 'opponents'
+                ? `Всякое устроение общих дел и решений вокруг темы «${keyPhrase}» требует страха Божия, трезвости и ответственности за ближнего, а не громких лозунгов. Не выдавайте личные пристрастия за непогрешимую истину и не перекладывайте цену своих ошибок на чужие плечи. Прежде чем править миром, каждому стоит навести порядок в собственной совести.`
+                : `Размышляя о вопросах общественного устроения — таких как ${keyPhrase} — важно отделять правду совести от шума мирских споров. Мудрость заключается в том, чтобы видеть реальные плоды решений для живых людей, а не увлекаться пустыми спорами. Храни внутренний мир и трезвое рассуждение, не беря на себя ношу, которая тебе не вверена.`;
+            }
+            return audience === 'opponents'
+              ? `Мир вам и ясность вашему дому: в вопросе, который касается темы «${keyPhrase}», каждый человек отвечает перед совестью и перед Богом за собственный выбор. Никому не дано право навязывать ближнему чужие ярлыки или непрошеные уроки там, где у каждого свой путь. Оставьте чужие границы в покое и обратите взгляд внутрь собственной жизни.`
+              : `Храни мир в душе и трезвость в слове: в твоих мыслях о том, что касается темы «${keyPhrase}», слышится стремление опираться на собственный здравый смысл, а не на шум толпы. Человек призван говорить от своего лица и за свой дом, не смешивая собственный голос с чужой суетой. Опирайся на тихий голос совести и иди своей дорогой спокойно.`;
+          }
+
+          if (persona === 'senate') {
+            if (domain === 'strategy_game') {
+              return audience === 'opponents'
+                ? `Комитет принимает к сведению материалы по предмету «${keyPhrase}». Для протокола фиксируется, что соблюдение установленных правил хода и равных условий исключает произвольное толкование со стороны участников. Сторонам надлежит придерживаться регламента самой партии и воздерживаться от несанкционированного вмешательства.`
+                : `Для внесения в протокол: рассмотрение вопроса «${keyPhrase}» подтверждает значение последовательного расчёта, соблюдения правил позиции и оценки долгосрочных последствий каждого хода. Комитет отмечает, что дисциплина анализа в рамках заданных правил повышает устойчивость принимаемых решений.`;
+            }
+            if (domain === 'policy') {
+              return audience === 'opponents'
+                ? `Комитет фиксирует представленные замечания по вопросу «${keyPhrase}». В рамках процедурного разбора установлено, что любые нормативные или политические предложения подлежат оценке по их реальным экономическим и социальным последствиям, а не по декларативным лозунгам. Сторонам предлагается опираться на проверяемые факты и чёткие границы полномочий.`
+                : `Для внесения в протокол: представленный анализ по теме «${keyPhrase}» затрагивает ключевой баланс между институциональными правилами, распределением ресурсов и практической реализуемостью решений. Комитет отмечает обоснованность взвешенного подхода, учитывающего реальные издержки и местные условия.`;
+            }
+            return audience === 'opponents'
+              ? `Комитет принимает к сведению представленную позицию по теме «${keyPhrase}». Для протокола фиксируется чёткое разграничение между частным опытом гражданина и коллективными или официальными полномочиями. Сторонам надлежит воздержаться от несанкционированного вмешательства и навязывания непрошеных рекомендаций.`
+              : `Для внесения в протокол: заявленная позиция по вопросу «${keyPhrase}» подтверждает приоритет личной ответственности и оценки конкретных жизненных обстоятельств. Комитет отмечает обоснованность отказа от подмены индивидуального суждения внешними штампами.`;
+          }
+
+          if (domain === 'strategy_game') {
+            return audience === 'opponents'
+              ? `С аналитической точки зрения, обсуждение темы «${keyPhrase}» — это вопрос теории игр и соблюдения формальных правил взаимодействия. Когда оппоненты подменяют логику позиции и расчёт вариантов эмоциональными претензиями, они нарушают базовую структуру игры. Рациональная стратегия здесь — опираться исключительно на правила доски и объективное положение фигур.`
+              : `Если рассмотреть «${keyPhrase}» через призму теории игр и когнитивного планирования, ключевым фактором здесь выступает оценка дерева решений на несколько шагов вперёд. В отличие от сложных систем с неполной информацией, чёткие правила позиции позволяют напрямую связывать каждый ход с его структурным результатом. Это отличная модель для тренировки стратегического мышления.`;
+          }
+          if (domain === 'policy') {
+            return audience === 'opponents'
+              ? `В политологическом и институциональном разборе тезис вокруг темы «${keyPhrase}» указывает на разрыв между декларативной риторикой и реальными стимулами системы. Критики часто игнорируют издержки реализации и локальный контекст, подменяя анализ лозунгами. Корректная дискуссия требует оценки конкретных механизмов исполнения и побочных эффектов.`
+              : `С точки зрения анализа государственной политики и институтов, вопрос «${keyPhrase}» упирается в архитектуру стимулов, распределение полномочий и компромисс между краткосрочным эффектом и долгосрочной устойчивостью. Любое правило работает ровно настолько, насколько оно согласовано с реальным поведением людей и ресурсной базой на местах.`;
+          }
+          return audience === 'opponents'
+            ? `С аналитической точки зрения, в тезисе вокруг темы «${keyPhrase}» проведена чёткая граница между индивидуальной субъектностью и коллективными проекциями. Когда оппоненты подменяют предметный разговор ярлыками или навязывают модели поведения, не подтверждённые их собственной практикой, дискуссия теряет смысл. Рациональный ответ здесь — строгое разделение зон ответственности.`
+            : `Если рассматривать вопрос «${keyPhrase}» через призму когнитивной психологии и системного анализа, ключевой вывод состоит в разделении собственного трезвого расчёта и внешних групповых клише. Устойчивость решений возрастает тогда, когда они опираются на реальные условия среды и проверяемый опыт, а не на чужие шаблоны.`;
+        }
+
+        // English (en-US)
+        if (persona === 'priest') {
+          if (domain === 'strategy_game') {
+            return audience === 'opponents'
+              ? `Peace be with you across the board: even in a pastime like ${keyPhrase}, we see the difference between honest play and the urge to boast or lecture a neighbor. Keep the game in its proper measure—honor the rules, respect your opponent, and leave pride at the door. Each person is accountable for their own move and their own spirit.`
+              : `Even in something as straightforward as ${keyPhrase}, there is a quiet lesson in patience, foresight, and steadiness of mind. Looking carefully at the board before acting—rather than rushing out of habit or noise—reflects good stewardship of your attention. Take your turn with clarity, enjoy the discipline of the craft, and keep peace in your heart.`;
+          }
+          if (domain === 'policy') {
+            return audience === 'opponents'
+              ? `Questions of public order and governance surrounding ${keyPhrase} call for humility, honesty, and genuine care for neighbors—not hollow slogans or self-righteousness. Do not mistake partisan noise for moral authority or force the cost of untested ideas onto others. Let every voice answer first to conscience and truth.`
+              : `When weighing public decisions around ${keyPhrase}, wisdom asks us to look past loud rhetoric to the real human consequences borne by families and communities. Sound stewardship requires discernment, restraint, and honesty about what laws can and cannot heal. Keep your conscience clear and judge every proposal by its real fruit.`;
+          }
+          return audience === 'opponents'
+            ? `Peace be with your house, and clarity in your walk: on the matter of ${keyPhrase}, each soul answers before conscience and before God for their own path. No one is given the right to force borrowed labels or unsolicited judgments onto a neighbor. Leave another's ground in peace and tend first to your own house.`
+            : `Hold fast to peace of conscience and plain honesty: your reflection on ${keyPhrase} points toward speaking from your own true measure rather than carrying the noise of a crowd. Stay rooted in what is real, discern what truly belongs to your walk, and do not let outside confusion shake your inner steadiness.`;
+        }
+
+        if (persona === 'senate') {
+          if (domain === 'strategy_game') {
+            return audience === 'opponents'
+              ? `The committee notes the record submitted regarding ${keyPhrase}. For the record, adherence to established rules of play and objective board state governs the match, superseding unsolicited commentary or informal assertions by outside parties. Participants are advised to confine their remarks to lawful moves within the rules.`
+              : `For the record, the analysis of ${keyPhrase} underscores the value of structured sequence, rule compliance, and forward evaluation of positional trade-offs. The committee recognizes that disciplined decision-making within clearly defined parameters produces consistent, verifiable outcomes.`;
+          }
+          if (domain === 'policy') {
+            return audience === 'opponents'
+              ? `The committee enters into the record the testimony concerning ${keyPhrase}. It is established that policy proposals must be evaluated on statutory authority, fiscal feasibility, and measurable impact on constituents rather than rhetorical framing. Outside parties are advised to ground their objections in verifiable evidence and jurisdictional limits.`
+              : `For the record, the assessment of ${keyPhrase} identifies the core tension between regulatory design, resource allocation, and practical implementation across diverse communities. The committee notes that durable policymaking requires aligning institutional rules with on-the-ground economic realities.`;
+          }
+          return audience === 'opponents'
+            ? `The committee notes the testimony entered into the record regarding ${keyPhrase}. For the record, a clear boundary is established between an individual's personal judgment and any unauthorized group or institutional mandate. Outside parties are advised to refrain from adversarial provocation and unsolicited prescriptions.`
+            : `For the record, the statement submitted regarding ${keyPhrase} establishes a coherent distinction between personal self-direction and external collective scripts. Maintaining clear personal jurisdiction over one's decisions and local realities is entered as sound and sufficient.`;
+        }
+
+        if (domain === 'strategy_game') {
+          return audience === 'opponents'
+            ? `From a game-theoretic perspective, a dispute over ${keyPhrase} comes down to formal rules, legal moves, and positional evaluation—not rhetoric. When opponents substitute commentary or ego for actual board logic, they step outside the analytical structure of the game. The cleanest response is to let the rules and the objective position settle the argument.`
+            : `Examined through game theory and cognitive decision-making, ${keyPhrase} is a classic study in look-ahead search, tempo, and positional trade-offs. Because the rules are transparent and deterministic, every move directly alters the future state space without hidden noise. Focusing on structure and long-term board control rather than reactive impulses is what separates strong play from guesswork.`;
+        }
+        if (domain === 'policy') {
+          return audience === 'opponents'
+            ? `From a public-policy and institutional standpoint, the debate over ${keyPhrase} illustrates what happens when commentators ignore incentive structures and implementation constraints. Critics often treat policy as a statement of intent rather than a system that produces second-order effects across different environments. Sound critique requires engaging with actual trade-offs and empirical outcomes.`
+            : `Analyzed through institutional economics and policy design, ${keyPhrase} centers on how formal rules interact with real-world incentives and local constraints. Policies succeed or fail based on second-order effects—how people actually adapt on the ground—rather than on abstract intentions alone. Evaluating trade-offs empirically is the core discipline of sound governance.`;
+        }
+        return audience === 'opponents'
+          ? `From an analytical standpoint, your statement on ${keyPhrase} draws a sharp boundary between individual agency and unearned group projection. When critics substitute collective labels or unsolicited prescriptions for firsthand accountability, rational dialogue breaks down. Holding each person responsible for their own empirical track record and local environment is a coherent standard.`
+          : `Examined through cognitive and social analysis, your reflection on ${keyPhrase} separates independent judgment from borrowed group heuristics. Decisions hold up best when calibrated to your actual environment and direct incentives rather than external scripts. Maintaining clear boundaries around personal agency reduces noise and sharpens practical reasoning.`;
+      }
+
+      // --- Resolve Available Groq Model Candidates Dynamically ---
+      async function getGroqCandidateModels(apiKey) {
+        const defaultCandidates = [
+          'llama-3.1-8b-instant',
+          'llama-3.3-70b-versatile',
+          'meta-llama/llama-4-scout-17b-16e-instruct',
+          'qwen/qwen3-32b',
+          'gemma2-9b-it'
+        ];
+        try {
+          const res = await fetch('https://api.groq.com/openai/v1/models', {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+          });
+          if (!res.ok) return defaultCandidates;
+          const data = await res.json();
+          const available = (data.data || [])
+            .map(m => m.id)
+            .filter(id => !/whisper|guard|tts|safeguard|orpheus|canopylabs|distil-whisper|playai/i.test(id));
+
+          if (available.length === 0) return defaultCandidates;
+
+          const prioritized = [];
+          for (const pref of defaultCandidates) {
+            if (available.includes(pref)) prioritized.push(pref);
+          }
+          for (const id of available) {
+            if (!prioritized.includes(id)) prioritized.push(id);
+          }
+          return prioritized;
+        } catch (e) {
+          return defaultCandidates;
+        }
+      }
+
+      // --- Multi-Provider LLM API Callers ---
+      async function callLLMProvider(userText) {
+        const provider = state.settings.provider;
+        const apiKey = (state.settings.apiKeys[provider] || '').trim();
+
+        if (provider === 'offline') {
+          await new Promise(r => setTimeout(r, 300));
+          return {
+            text: generateOfflineResponse(userText, state.persona, state.audience, state.lang),
+            sourceLabel: 'Offline Synthesis'
+          };
+        }
+
+        if (!apiKey) {
+          if (state.settings.autoFallback) {
+            showToast(`No ${provider.toUpperCase()} key entered — using Offline Synthesis.`, 'info');
+            return {
+              text: generateOfflineResponse(userText, state.persona, state.audience, state.lang),
+              sourceLabel: 'Offline Synthesis (No Key)'
+            };
+          }
+          throw new Error(`Missing API key for ${provider.toUpperCase()}. Open Settings to add a key or switch to Offline Demo Mode.`);
+        }
+
+        const systemPrompt = buildSystemPrompt(state.persona, state.audience, state.lang);
+
+        try {
+          if (provider === 'gemini') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ parts: [{ text: userText }] }],
+                generationConfig: { temperature: 0.7, maxOutputTokens: 450 }
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error?.message || `Gemini API error (${res.status})`);
+            }
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (!text) throw new Error('Empty response returned from Gemini.');
+            return { text, sourceLabel: 'Gemini 2.5 Flash' };
+          }
+
+          if (provider === 'openai') {
+            const res = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userText }
+                ],
+                temperature: 0.7,
+                max_tokens: 450
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error?.message || `OpenAI API error (${res.status})`);
+            }
+            const text = data.choices?.[0]?.message?.content?.trim();
+            if (!text) throw new Error('Empty response returned from OpenAI.');
+            return { text, sourceLabel: 'OpenAI GPT-4o-mini' };
+          }
+
+          if (provider === 'groq') {
+            const candidates = await getGroqCandidateModels(apiKey);
+            let lastGroqError = 'No accessible Groq chat model found.';
+            for (const modelId of candidates) {
+              const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                  model: modelId,
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userText }
+                  ],
+                  temperature: 0.7,
+                  max_tokens: 450
+                })
+              });
+              const data = await res.json();
+              if (res.ok) {
+                const text = data.choices?.[0]?.message?.content?.trim();
+                if (text) return { text, sourceLabel: `Groq (${modelId})` };
+              } else {
+                lastGroqError = data.error?.message || `Groq API error (${res.status})`;
+              }
+            }
+            throw new Error(lastGroqError);
+          }
+
+          throw new Error('Unknown provider selected.');
+        } catch (apiErr) {
+          if (state.settings.autoFallback) {
+            showToast(`${provider.toUpperCase()} unavailable (${apiErr.message}) — used Offline Synthesis.`, 'info');
+            return {
+              text: generateOfflineResponse(userText, state.persona, state.audience, state.lang),
+              sourceLabel: 'Offline Synthesis (Fallback)'
+            };
+          }
+          throw apiErr;
+        }
+      }
+
+      // --- Text-to-Speech (SpeechSynthesis) ---
+      function speakResponse(text, persona = state.persona, lang = state.lang) {
+        if (!('speechSynthesis' in window)) {
+          showToast('Text-to-Speech is not supported in this browser.', 'error');
+          return;
+        }
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang;
+
+        const ttsCfg = PERSONA_CONFIG[persona]?.tts || { rate: 1.0, pitch: 1.0 };
+        utterance.rate = ttsCfg.rate;
+        utterance.pitch = ttsCfg.pitch;
+
+        const voices = window.speechSynthesis.getVoices();
+        const langPrefix = lang.split('-')[0].toLowerCase();
+        const matchingVoices = voices.filter(v => v.lang.toLowerCase().startsWith(langPrefix));
+        if (matchingVoices.length > 0) {
+          const preferred = matchingVoices.find(v => /natural|google|daniel|alex|yuri|milena|samantha/i.test(v.name)) || matchingVoices[0];
+          utterance.voice = preferred;
+        }
+
+        utterance.onstart = () => {
+          els.stopSpeakBtn.classList.remove('hidden');
+          if (els.speakBtnLabel) {
+            els.speakBtnLabel.textContent = lang === 'ru-RU' ? 'Звучит...' : 'Playing...';
+          }
+        };
+
+        utterance.onend = () => {
+          els.stopSpeakBtn.classList.add('hidden');
+          if (els.speakBtnLabel) {
+            els.speakBtnLabel.textContent = lang === 'ru-RU' ? 'Озвучить' : 'Speak';
+          }
+        };
+
+        utterance.onerror = () => {
+          els.stopSpeakBtn.classList.add('hidden');
+          if (els.speakBtnLabel) {
+            els.speakBtnLabel.textContent = lang === 'ru-RU' ? 'Озвучить' : 'Speak';
+          }
+        };
+
+        window.speechSynthesis.speak(utterance);
+      }
+
+      function stopSpeaking() {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+        els.stopSpeakBtn.classList.add('hidden');
+        if (els.speakBtnLabel) {
+          els.speakBtnLabel.textContent = state.lang === 'ru-RU' ? 'Озвучить' : 'Speak';
+        }
+      }
+
+      // --- Main Response Generation Workflow (Silent by Default) ---
+      async function handleGenerate() {
+        const userText = els.transcriptInput.value.trim();
+        if (!userText) {
+          showToast(
+            state.lang === 'ru-RU'
+              ? 'Пожалуйста, продиктуйте или введите текст перед отправкой.'
+              : 'Please speak or enter a statement first.',
+            'error'
+          );
+          els.transcriptInput.focus();
+          return;
+        }
+
+        if (state.isListening && recognition) {
+          recognition.stop();
+        }
+        stopSpeaking();
+
+        state.isGenerating = true;
+        els.generateBtn.disabled = true;
+        els.generateBtn.classList.add('opacity-70', 'pointer-events-none');
+        setStatus(
+          state.lang === 'ru-RU' ? 'Формирую ответ...' : 'Crafting persona response...',
+          'thinking'
+        );
+
+        try {
+          const { text, sourceLabel } = await callLLMProvider(userText);
+          state.lastResponse = text;
+
+          const pCfg = PERSONA_CONFIG[state.persona];
+          els.responsePersonaBadge.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${pCfg.badgeClass}`;
+          els.responsePersonaBadge.textContent = pCfg.label[state.lang] || pCfg.label['en-US'];
+          els.responseAudienceBadge.textContent = AUDIENCE_LABELS[state.audience][state.lang];
+          els.responseModeBadge.textContent = `• ${sourceLabel}`;
+          els.responseOutput.textContent = text;
+
+          els.speakBtn.disabled = false;
+          els.copyBtn.disabled = false;
+          if (els.speakBtnLabel) {
+            els.speakBtnLabel.textContent = state.lang === 'ru-RU' ? 'Озвучить' : 'Speak';
+          }
+
+          state.history.unshift({
+            id: Date.now(),
+            persona: state.persona,
+            audience: state.audience,
+            lang: state.lang,
+            input: userText,
+            output: text,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+          saveHistoryToStorage();
+          renderHistory();
+
+          setStatus(
+            state.lang === 'ru-RU'
+              ? 'Ответ готов (нажмите «Озвучить», чтобы прослушать).'
+              : 'Response ready (click Speak to listen).',
+            'ready'
+          );
+        } catch (err) {
+          console.error(err);
+          showToast(err.message || 'Failed to generate response.', 'error');
+          setStatus('Error generating response.', 'error');
+        } finally {
+          state.isGenerating = false;
+          els.generateBtn.disabled = false;
+          els.generateBtn.classList.remove('opacity-70', 'pointer-events-none');
+        }
+      }
+
+      // --- Clipboard Helper ---
+      function copyTextToClipboard(text) {
+        if (!text) return;
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          showToast(state.lang === 'ru-RU' ? 'Скопировано в буфер обмена' : 'Copied to clipboard', 'success');
+        } catch (e) {
+          showToast('Unable to copy text.', 'error');
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      }
+
+      // --- Render History Log ---
+      function renderHistory() {
+        els.historyCount.textContent = String(state.history.length);
+
+        if (state.history.length === 0) {
+          els.historyList.innerHTML = `
+            <div class="text-center py-6 px-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+              No saved responses yet. Generated responses are saved automatically in your browser.
+            </div>
+          `;
+          return;
+        }
+
+        els.historyList.innerHTML = '';
+        state.history.forEach(item => {
+          const pCfg = PERSONA_CONFIG[item.persona] || PERSONA_CONFIG.priest;
+          const card = document.createElement('div');
+          card.className = 'p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2.5';
+
+          const header = document.createElement('div');
+          header.className = 'flex flex-wrap items-center justify-between gap-2';
+
+          const badges = document.createElement('div');
+          badges.className = 'flex flex-wrap items-center gap-1.5';
+          badges.innerHTML = `
+            <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold ${pCfg.badgeClass}">${pCfg.label[item.lang] || pCfg.label['en-US']}</span>
+            <span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${AUDIENCE_LABELS[item.audience]?.[item.lang] || item.audience}</span>
+            <span class="text-[11px] text-slate-400">${item.lang} • ${item.timestamp}</span>
+          `;
+
+          const actions = document.createElement('div');
+          actions.className = 'flex items-center gap-1.5';
+
+          const playBtn = document.createElement('button');
+          playBtn.type = 'button';
+          playBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-slate-700 dark:text-slate-200 transition';
+          playBtn.textContent = item.lang === 'ru-RU' ? '🔊 Озвучить' : '🔊 Play';
+          playBtn.onclick = () => speakResponse(item.output, item.persona, item.lang);
+
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition';
+          copyBtn.textContent = item.lang === 'ru-RU' ? 'Копия' : 'Copy';
+          copyBtn.onclick = () => copyTextToClipboard(item.output);
+
+          actions.append(playBtn, copyBtn);
+          header.append(badges, actions);
+
+          const promptQuote = document.createElement('p');
+          promptQuote.className = 'text-xs text-slate-500 dark:text-slate-400 italic line-clamp-2 border-l-2 border-slate-200 dark:border-slate-700 pl-2.5';
+          promptQuote.textContent = `"${item.input}"`;
+
+          const outputPara = document.createElement('p');
+          outputPara.className = 'text-sm text-slate-800 dark:text-slate-200 leading-relaxed';
+          outputPara.textContent = item.output;
+
+          card.append(header, promptQuote, outputPara);
+          els.historyList.appendChild(card);
+        });
+      }
+
+      // --- Settings Modal Handlers ---
+      function openSettingsModal() {
+        const currentProvider = state.settings.provider;
+        els.apiProviderRadios.forEach(radio => {
+          radio.checked = radio.value === currentProvider;
+        });
+        els.autoFallbackCheckbox.checked = state.settings.autoFallback;
+        syncSettingsModalKeyField(currentProvider);
+        els.settingsModal.classList.remove('hidden');
+      }
+
+      function syncSettingsModalKeyField(provider) {
+        if (provider === 'offline') {
+          els.apiKeyGroup.classList.add('opacity-40', 'pointer-events-none');
+          els.apiKeyInput.value = '';
+          els.apiKeyInput.placeholder = 'No API key required in Offline Demo mode';
+        } else {
+          els.apiKeyGroup.classList.remove('opacity-40', 'pointer-events-none');
+          els.apiKeyInput.value = state.settings.apiKeys[provider] || '';
+          const placeholders = {
+            gemini: 'AIzaSy...',
+            openai: 'sk-...',
+            groq: 'gsk_...'
+          };
+          els.apiKeyInput.placeholder = placeholders[provider] || 'Paste API key...';
+        }
+      }
+
+      function closeSettingsModal() {
+        els.settingsModal.classList.add('hidden');
+      }
+
+      function saveSettingsFromModal() {
+        let selectedProvider = 'offline';
+        els.apiProviderRadios.forEach(r => {
+          if (r.checked) selectedProvider = r.value;
+        });
+
+        state.settings.provider = selectedProvider;
+        state.settings.autoFallback = els.autoFallbackCheckbox.checked;
+        if (selectedProvider !== 'offline') {
+          state.settings.apiKeys[selectedProvider] = els.apiKeyInput.value.trim();
+        }
+
+        saveSettingsToStorage();
+        updateUI();
+        closeSettingsModal();
+        showToast('Settings saved.', 'success');
+      }
+
+      // --- Bind All Events ---
+      function bindEvents() {
+        els.personaCards.forEach(card => {
+          card.addEventListener('click', () => {
+            state.persona = card.dataset.persona;
+            updateUI();
+          });
+        });
+
+        els.audienceBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.audience = btn.dataset.audience;
+            updateUI();
+          });
+        });
+
+        els.langBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.lang = btn.dataset.lang;
+            if (recognition) {
+              recognition.lang = state.lang;
+            }
+            updateUI();
+          });
+        });
+
+        els.micBtn.addEventListener('click', toggleListening);
+        els.transcriptInput.addEventListener('input', () => {
+          finalTranscriptBuffer = els.transcriptInput.value.trim();
+        });
+
+        els.loadSampleBtn.addEventListener('click', () => {
+          els.transcriptInput.value = EXAMPLE_INPUTS[state.lang];
+          finalTranscriptBuffer = els.transcriptInput.value;
+          showToast(state.lang === 'ru-RU' ? 'Пример загружен' : 'Example statement loaded', 'info');
+        });
+
+        els.clearInputBtn.addEventListener('click', () => {
+          els.transcriptInput.value = '';
+          finalTranscriptBuffer = '';
+          els.interimPreview.classList.add('hidden');
+          els.transcriptInput.focus();
+        });
+
+        els.generateBtn.addEventListener('click', handleGenerate);
+
+        els.speakBtn.addEventListener('click', () => {
+          if (state.lastResponse) {
+            speakResponse(state.lastResponse, state.persona, state.lang);
+          }
+        });
+        els.stopSpeakBtn.addEventListener('click', stopSpeaking);
+        els.copyBtn.addEventListener('click', () => copyTextToClipboard(state.lastResponse));
+
+        els.clearHistoryBtn.addEventListener('click', () => {
+          state.history = [];
+          saveHistoryToStorage();
+          renderHistory();
+          showToast('History cleared.', 'info');
+        });
+
+        els.openSettingsBtn.addEventListener('click', openSettingsModal);
+        els.providerBadgeBtn.addEventListener('click', openSettingsModal);
+        els.closeSettingsBtn.addEventListener('click', closeSettingsModal);
+        els.cancelSettingsBtn.addEventListener('click', closeSettingsModal);
+        els.saveSettingsBtn.addEventListener('click', saveSettingsFromModal);
+
+        els.apiProviderRadios.forEach(radio => {
+          radio.addEventListener('change', (e) => {
+            syncSettingsModalKeyField(e.target.value);
+          });
+        });
+
+        els.toggleKeyVisibilityBtn.addEventListener('click', () => {
+          els.apiKeyInput.type = els.apiKeyInput.type === 'password' ? 'text' : 'password';
+        });
+
+        els.settingsModal.addEventListener('click', (e) => {
+          if (e.target === els.settingsModal) closeSettingsModal();
+        });
+
+        els.themeToggleBtn.addEventListener('click', toggleTheme);
+      }
+
+      // --- Initialize Application ---
+      window.addEventListener('DOMContentLoaded', () => {
+        initTheme();
+        loadPersistedData();
+        setupSpeechRecognition();
+        bindEvents();
+        updateUI();
+        renderHistory();
+
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.getVoices();
+          window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
