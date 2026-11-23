@@ -1210,33 +1210,32 @@
       function summarizeOnlyResponse(text, lang) {
         if (!text) return '';
         const cleaned = text.replace(/\s+/g, ' ').trim();
-        const sentences = cleaned
-          .split(/(?<=[.!?])\s+/)
+        const sentences = (cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
           .map(s => s.trim())
           .filter(Boolean);
 
         if (sentences.length <= 1) {
-          return cleaned;
+          const words = cleaned.split(/\s+/);
+          const shortPhrase = words.length > 14 ? words.slice(0, 14).join(' ') + '...' : cleaned;
+          return lang === 'ru-RU' ? `Коротко: ${shortPhrase}` : `In short: ${shortPhrase}`;
         }
 
-        // Extract the middle/core analytical or prescriptive sentence (skipping generic intro & outro)
-        // and condense it into a single crisp, distinct takeaway.
+        // Pick the middle core sentence and strip ceremonial prefixes so it reads as a distinct takeaway
         const coreSentence = sentences.length >= 3 ? sentences[1] : sentences[0];
         let condensed = coreSentence
-          .replace(/^(For the record,|In рамках процедурного разбора установлено, что|В рамках процедурного разбора установлено, что|It is established that|Because the rules are transparent and deterministic,|Sound stewardship requires|Maintaining clear boundaries around)\s*/i, '')
+          .replace(/^(For the record,|It is established that|Because the rules are transparent and deterministic,|Sound stewardship requires|Maintaining clear boundaries around|In рамках процедурного разбора установлено, что|В рамках процедурного разбора установлено, что)\s*/i, '')
           .trim();
 
         condensed = condensed.charAt(0).toUpperCase() + condensed.slice(1);
 
-        // If the condensed sentence is still long, trim after a natural clause boundary (em-dash or semicolon)
-        const clauseParts = condensed.split(/\s*[—;]\s*/);
-        if (clauseParts.length > 1 && clauseParts[0].split(/\s+/).length >= 6) {
-          condensed = clauseParts[0].replace(/[,:]$/, '') + '.';
+        const clauseParts = condensed.split(/\s*[—;:]\s*/);
+        if (clauseParts.length > 1 && clauseParts[0].split(/\s+/).length >= 5) {
+          condensed = clauseParts[0].replace(/,$/, '') + '.';
         }
 
         return lang === 'ru-RU'
-          ? `Главный вывод: ${condensed}`
-          : `Core takeaway: ${condensed}`;
+          ? `Коротко: ${condensed}`
+          : `In short: ${condensed}`;
       }
 
       async function callLLMSummaryOnly(responseText, lang) {
@@ -1247,19 +1246,23 @@
         }
 
         const sysPrompt = lang === 'ru-RU'
-          ? 'Перепиши ТОЛЬКО приведённый ниже текст в ОДНО короткое, предельно ясное предложение (до 18 слов) своими словами на русском языке. Не копируй фразы дословно — передай только главную суть ответа.'
-          : 'Rewrite ONLY the response text provided below into ONE short, punchy sentence (under 20 words) in your own words. Do not copy sentences verbatim—capture only the core point.';
+          ? 'Перепиши ТОЛЬКО приведённый ниже текст в ОДНО короткое предложение (до 15 слов) своими словами на русском языке. Не повторяй фразы дословно — оставь только главную мысль.'
+          : 'Rewrite ONLY the response text below into ONE short, punchy sentence (under 15 words) in your own words. Do not repeat phrases verbatim—keep only the core point.';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         try {
           if (provider === 'gemini') {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
             const res = await fetch(url, {
               method: 'POST',
+              signal: controller.signal,
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 systemInstruction: { parts: [{ text: sysPrompt }] },
                 contents: [{ parts: [{ text: responseText }] }],
-                generationConfig: { temperature: 0.3, maxOutputTokens: 160 }
+                generationConfig: { temperature: 0.3, maxOutputTokens: 120 }
               })
             });
             const data = await res.json();
@@ -1268,6 +1271,7 @@
           } else if (provider === 'openai') {
             const res = await fetch('https://api.openai.com/v1/chat/completions', {
               method: 'POST',
+              signal: controller.signal,
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
               body: JSON.stringify({
                 model: 'gpt-4o-mini',
@@ -1276,7 +1280,7 @@
                   { role: 'user', content: responseText }
                 ],
                 temperature: 0.3,
-                max_tokens: 160
+                max_tokens: 120
               })
             });
             const data = await res.json();
@@ -1287,6 +1291,7 @@
             for (const modelId of candidates) {
               const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
+                signal: controller.signal,
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
                 body: JSON.stringify({
                   model: modelId,
@@ -1295,7 +1300,7 @@
                     { role: 'user', content: responseText }
                   ],
                   temperature: 0.3,
-                  max_tokens: 160
+                  max_tokens: 120
                 })
               });
               const data = await res.json();
@@ -1305,6 +1310,8 @@
           }
         } catch (e) {
           console.warn('LLM summary fallback:', e);
+        } finally {
+          clearTimeout(timeoutId);
         }
         return summarizeOnlyResponse(responseText, lang);
       }
@@ -1579,4 +1586,10 @@
         }
         if ('speechSynthesis' in window) {
           window.speechSynthesis.getVoices();
-       
+          window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
