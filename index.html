@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Persona & Boundary Responder</title>
+<title>Mother Boundary Responder · Warm & Clear</title>
 <style>
 :root {
   --bg: #0f172a;
@@ -11,14 +11,14 @@
   --border: #334155;
   --text: #f8fafc;
   --muted: #94a3b8;
-  --accent: #38bdf8;
-  --accent-hover: #0284c7;
+  --accent: #10b981;
+  --accent-hover: #059669;
+  --sky: #38bdf8;
   --warn: #f59e0b;
-  --ok: #10b981;
   --rec: #ef4444;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 16px; max-width: 780px; margin: 0 auto; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 16px; max-width: 720px; margin: 0 auto; }
 header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; }
 h1 { font-size: 1.2rem; font-weight: 700; }
 .subtitle { font-size: 0.85rem; color: var(--muted); }
@@ -28,29 +28,24 @@ h1 { font-size: 1.2rem; font-weight: 700; }
 label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
 .label-row label { margin-bottom: 0; }
 textarea, input, select { width: 100%; background: #0f172a; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; margin-bottom: 12px; }
-textarea { min-height: 110px; resize: vertical; }
+textarea { min-height: 115px; resize: vertical; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
-.pill-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.pill { background: #0f172a; border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-.pill:hover { background: #334155; }
-.pill.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
-.pill.mother-active { background: var(--ok); color: #0f172a; border-color: var(--ok); }
+@media (max-width: 540px) { .row { grid-template-columns: 1fr; } }
 button { background: var(--accent); color: #0f172a; border: none; border-radius: 8px; padding: 10px 16px; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
 button:hover { background: var(--accent-hover); color: #fff; }
 button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); font-weight: 600; padding: 8px 12px; font-size: 0.85rem; }
 button.secondary:hover { background: #334155; }
 button.mic-active { background: var(--rec); border-color: var(--rec); color: #fff; }
+.grounding { border-left: 3px solid var(--accent); padding-left: 12px; font-size: 0.88rem; color: #cbd5e1; margin-bottom: 14px; }
 .tag { display: inline-block; background: rgba(245, 158, 11, 0.15); color: var(--warn); border: 1px solid rgba(245, 158, 11, 0.4); padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; margin: 0 6px 6px 0; }
-.reply-box { background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 8px; white-space: pre-wrap; font-size: 0.95rem; }
+.reply-box { background: #0f172a; border: 1px solid var(--accent); border-radius: 8px; padding: 12px; margin-top: 6px; white-space: pre-wrap; font-size: 0.96rem; }
 .wtf-box { background: #0f172a; border-left: 3px solid var(--warn); border-radius: 8px; padding: 12px; margin-top: 12px; white-space: pre-wrap; font-size: 0.92rem; color: #fde68a; }
-.summary-box { background: #0f172a; border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px; margin-top: 12px; white-space: pre-wrap; font-size: 0.92rem; color: #e2e8f0; }
+.summary-box { background: #0f172a; border-left: 3px solid var(--sky); border-radius: 8px; padding: 12px; margin-top: 12px; white-space: pre-wrap; font-size: 0.92rem; color: #e2e8f0; }
 .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
-.grounding { border-left: 3px solid var(--ok); padding-left: 12px; font-size: 0.88rem; color: #cbd5e1; margin-top: 4px; margin-bottom: 12px; }
 details summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); font-weight: 600; }
 .log-item { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; font-size: 0.85rem; }
-.status-toast { font-size: 0.85rem; color: var(--ok); margin-left: 4px; }
-.interim-preview { font-style: italic; color: var(--accent); font-size: 0.88rem; }
+.status-toast { font-size: 0.85rem; color: var(--accent); margin-left: 4px; }
+.interim-preview { font-style: italic; color: var(--sky); font-size: 0.88rem; }
 .error-text { color: #f87171; font-size: 0.9rem; }
 </style>
 </head>
@@ -58,8 +53,8 @@ details summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); font
 
 <header>
   <div>
-    <h1 id="uiTitle">Persona & Boundary Responder</h1>
-    <div id="uiSubtitle" class="subtitle">Priest · Mother (Cute & Clear Boundary · No Enmeshment / JADE)</div>
+    <h1 id="uiTitle">Mother Boundary Responder</h1>
+    <div id="uiSubtitle" class="subtitle">Cute & Polite Reply · Zero Enmeshment · No JADE</div>
   </div>
   <div class="header-controls">
     <button class="secondary" id="uiLangBtn" onclick="toggleUiLang()">EN / RU</button>
@@ -83,89 +78,73 @@ details summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); font
 </div>
 
 <div class="card">
-  <label id="lblPersona">1. Choose Mode</label>
-  <div class="pill-group" id="personaGroup">
-    <button type="button" class="pill active" data-persona="priest" onclick="selectPersona('priest')" id="pPriest">Priest</button>
-    <button type="button" class="pill" data-persona="mother" onclick="selectPersona('mother')" id="pMother">Mother (Cute & Clear Boundary)</button>
-  </div>
-
-  <div id="motherOptions" style="display:none;">
-    <div id="uiGrounding" class="grounding">
-      <strong>Adult Autonomy Check:</strong> Warm and polite on the surface, zero enmeshment underneath. Do not deny, lecture, control, or <strong>JADE</strong> (Justify, Argue, Defend, Explain)—just acknowledge kindly and move on.
-    </div>
-    <label id="lblStance" for="stance">Boundary Stance</label>
-    <select id="stance">
-      <option value="medium" id="optMedium">Medium Chill (Cute, warm, detached — move right along)</option>
-      <option value="gray" id="optGray">Gray Rock (Minimal, neutral, factual)</option>
-      <option value="firm" id="optFirm">Firm Limit (Warm & clear time/topic limit)</option>
-    </select>
-  </div>
-
-  <div id="standardAudienceWrap">
-    <label id="lblAudience">2. Target Audience</label>
-    <div class="pill-group">
-      <button type="button" class="pill active" data-audience="opponents" onclick="selectAudience('opponents')" id="aOpponents">To Opponents</button>
-      <button type="button" class="pill" data-audience="self" onclick="selectAudience('self')" id="aSelf">To Yourself</button>
-    </div>
+  <div id="uiGrounding" class="grounding">
+    <strong>Begin & End Cleanly:</strong> Warm and cute on the surface, completely separate underneath. Do not deny, lecture, control, or <strong>JADE</strong> (Justify, Argue, Defend, Explain)—acknowledge kindly and move right on with your day.
   </div>
 
   <div class="label-row">
-    <label id="lblIncoming" for="incoming">3. Paste or Dictate Message (EN / RU)</label>
+    <label id="lblIncoming" for="incoming">1. Paste or Dictate Mother's Message (EN / RU)</label>
     <button type="button" class="secondary" id="btnMic" onclick="toggleMic()">Mic / Speak</button>
   </div>
-  <textarea id="incoming" placeholder="Paste incoming message or press Mic to dictate..."></textarea>
+  <textarea id="incoming" placeholder="Paste her message here or press Mic to dictate..."></textarea>
   <div id="micStatus" class="status-toast" style="margin-bottom:10px;"></div>
 
   <div class="row">
     <div>
-      <label id="lblReplyLang" for="lang">4. Reply Language</label>
+      <label id="lblStance" for="stance">2. Reply Tone</label>
+      <select id="stance">
+        <option value="medium" id="optMedium">Cute & Warm (Medium Chill — move right on)</option>
+        <option value="gray" id="optGray">Short & Neutral (Gray Rock)</option>
+        <option value="firm" id="optFirm">Warm & Clear Limit (Time/Topic Frame)</option>
+      </select>
+    </div>
+    <div>
+      <label id="lblReplyLang" for="lang">3. Reply Language</label>
       <select id="lang">
         <option value="auto">Auto-detect (Match incoming)</option>
         <option value="en">English</option>
         <option value="ru">Русский (Russian)</option>
       </select>
     </div>
-    <div style="display:flex; align-items:flex-end;">
-      <button id="btnGenerate" onclick="generateResponse()" style="width:100%; margin-bottom:12px;">Generate Response</button>
-    </div>
   </div>
 
+  <button id="btnGenerate" onclick="generateReply()" style="width:100%;">Draft Cute, Boundary-Safe Reply</button>
+
   <div class="actions">
+    <button type="button" class="secondary" id="btnWtf" onclick="explainWtf()">WTF Is Going On?</button>
     <button type="button" class="secondary" id="btnSummary" onclick="summarizeOutput()">Summary (1–2 sentences)</button>
     <button type="button" class="secondary" id="btnSpeak" onclick="toggleSpeakReply()">Speak</button>
-    <button type="button" class="secondary" id="btnWtf" onclick="explainWtf()">WTF Is Going On?</button>
+  </div>
+
+  <div id="wtfWrap" style="display:none;">
+    <label id="lblWtfOut" style="margin-top:12px;">Reality Check (For Yourself Only)</label>
+    <div id="wtfText" class="wtf-box"></div>
   </div>
 
   <div id="summaryWrap" style="display:none;">
     <label id="lblSummaryOut" style="margin-top:12px;">Short Summary (1–2 sentences max)</label>
     <div id="summaryText" class="summary-box"></div>
   </div>
-
-  <div id="wtfWrap" style="display:none;">
-    <label id="lblWtfOut" style="margin-top:12px;">Unfiltered Reality Check (For Yourself)</label>
-    <div id="wtfText" class="wtf-box"></div>
-  </div>
 </div>
 
 <div id="outputCard" class="card" style="display:none;">
-  <div id="hooksSection">
-    <label id="lblHooks">Detected Hooks & Enmeshment</label>
-    <div id="hooksList" style="margin-bottom:12px;"></div>
-    <label id="lblFact">Literal Core Fact (Zero Guilt / Projection)</label>
-    <div id="coreFact" style="font-size:0.9rem; color:#cbd5e1; margin-bottom:12px;"></div>
-  </div>
-  <label id="lblReply">Ready-to-Send Response</label>
+  <label id="lblReply">Ready-to-Send Cute Reply</label>
   <div id="replyText" class="reply-box"></div>
-  <div class="actions">
-    <button id="btnCopy" onclick="copyReply()">Copy Response</button>
+  <div class="actions" style="margin-bottom:12px;">
+    <button id="btnCopy" onclick="copyReply()">Copy Reply</button>
     <button class="secondary" id="btnSave" onclick="saveToLog()">Save to Log</button>
     <span id="copyStatus" class="status-toast"></span>
   </div>
+
+  <label id="lblHooks">Detected Enmeshment / Guilt Hooks</label>
+  <div id="hooksList" style="margin-bottom:10px;"></div>
+  <label id="lblFact">Literal Core Fact (Zero Guilt / Projection)</label>
+  <div id="coreFact" style="font-size:0.9rem; color:#cbd5e1;"></div>
 </div>
 
 <div class="card">
   <details>
-    <summary id="lblLogSummary">Saved History Log (Local Browser Storage)</summary>
+    <summary id="lblLogSummary">Saved Reply Log (Local Browser Storage)</summary>
     <div id="logContainer" style="margin-top:10px;"></div>
     <button class="secondary" id="btnClearLog" onclick="clearLog()" style="margin-top:12px; font-size:0.8rem;">Clear Log</button>
   </details>
@@ -177,9 +156,6 @@ const GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models";
 const DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b";
 
 let uiLang = localStorage.getItem("pr_uilang") || "en";
-const savedPersona = localStorage.getItem("pr_persona");
-let currentPersona = (savedPersona === "priest" || savedPersona === "mother") ? savedPersona : "priest";
-let currentAudience = localStorage.getItem("pr_audience") || "opponents";
 let recognition = null;
 let isRecording = false;
 let isSpeaking = false;
@@ -187,8 +163,8 @@ let baseTranscript = "";
 
 const UI_TEXT = {
   en: {
-    title: "Persona & Boundary Responder",
-    subtitle: "Priest · Mother (Cute & Clear Boundary · No Enmeshment / JADE)",
+    title: "Mother Boundary Responder",
+    subtitle: "Cute & Polite Reply · Zero Enmeshment · No JADE",
     settingsBtn: "Groq API",
     apiKey: "Groq API Key (Stored locally in your browser)",
     model: "Groq Model ID",
@@ -197,52 +173,44 @@ const UI_TEXT = {
     fetchingGroq: "Fetching Groq models...",
     groqLoaded: "Loaded models: ",
     groqNone: "No active models returned.",
-    persona: "1. Choose Mode",
-    pPriest: "Priest",
-    pMother: "Mother (Cute & Clear Boundary)",
-    grounding: "<strong>Adult Autonomy Check:</strong> Warm and polite on the surface, zero enmeshment underneath. Do not deny, lecture, control, or <strong>JADE</strong> (Justify, Argue, Defend, Explain)—just acknowledge kindly and move on.",
-    stance: "Boundary Stance",
-    optMedium: "Medium Chill (Cute, warm, detached — move right along)",
-    optGray: "Gray Rock (Minimal, neutral, factual)",
-    optFirm: "Firm Limit (Warm & clear time/topic limit)",
-    audience: "2. Target Audience",
-    aOpponents: "To Opponents",
-    aSelf: "To Yourself",
-    incoming: "3. Paste or Dictate Message (EN / RU)",
-    placeholder: "Paste incoming message or press Mic to dictate...",
+    grounding: "<strong>Begin & End Cleanly:</strong> Warm and cute on the surface, completely separate underneath. Do not deny, lecture, control, or <strong>JADE</strong> (Justify, Argue, Defend, Explain)—acknowledge kindly and move right on with your day.",
+    incoming: "1. Paste or Dictate Mother's Message (EN / RU)",
+    placeholder: "Paste her message here or press Mic to dictate...",
     micStart: "Mic / Speak",
     micStop: "Stop Mic",
     micListening: "Listening... speak now.",
     micUnsupported: "Speech recognition is not supported in this browser.",
     micDenied: "Microphone permission blocked or speech error occurred.",
-    replyLang: "4. Reply Language",
-    btnGenerate: "Generate Response",
+    stance: "2. Reply Tone",
+    optMedium: "Cute & Warm (Medium Chill — move right on)",
+    optGray: "Short & Neutral (Gray Rock)",
+    optFirm: "Warm & Clear Limit (Time/Topic Frame)",
+    replyLang: "3. Reply Language",
+    btnGenerate: "Draft Cute, Boundary-Safe Reply",
+    btnWtf: "WTF Is Going On?",
     btnSummary: "Summary (1–2 sentences)",
     btnSpeak: "Speak",
     btnStopSpeak: "Stop Speaking",
-    btnWtf: "WTF Is Going On?",
+    wtfOut: "Reality Check (For Yourself Only)",
+    wtfLoading: "Checking what's actually going on...",
     summaryOut: "Short Summary (1–2 sentences max)",
     summarizing: "Summarizing into 1–2 sentences...",
-    wtfOut: "Unfiltered Reality Check (For Yourself)",
-    wtfLoading: "Checking what's actually going on...",
-    hooks: "Detected Hooks & Enmeshment",
-    fact: "Literal Core Fact (Zero Guilt / Projection)",
-    replyMother: "Cute, Polite Reply for Mom (Copy & Send)",
-    replyStandard: "Generated Response",
-    btnCopy: "Copy Response",
+    reply: "Ready-to-Send Cute Reply",
+    btnCopy: "Copy Reply",
     btnSave: "Save to Log",
-    logSummary: "Saved History Log (Local Browser Storage)",
+    hooks: "Detected Enmeshment / Guilt Hooks",
+    fact: "Literal Core Fact (Zero Guilt / Projection)",
+    logSummary: "Saved Reply Log (Local Browser Storage)",
     btnClearLog: "Clear Log",
     copied: "Copied!",
     saved: "Saved!",
     emptyLog: "No saved entries yet.",
     missingKey: "Enter your Groq API key in Groq API settings first.",
-    missingInput: "Paste or dictate a message first.",
-    ttsUnsupported: "Text-to-speech is not supported in this browser."
+    missingInput: "Paste or dictate her message first."
   },
   ru: {
-    title: "Persona & Boundary Responder",
-    subtitle: "Священник · Мама (Тёплая граница без слияния и JADE)",
+    title: "Mother Boundary Responder",
+    subtitle: "Милый вежливый ответ · Без слияния · Без JADE",
     settingsBtn: "Groq API",
     apiKey: "Groq API Ключ (хранится локально в браузере)",
     model: "Модель Groq (Model ID)",
@@ -251,73 +219,42 @@ const UI_TEXT = {
     fetchingGroq: "Загрузка моделей Groq...",
     groqLoaded: "Загружено моделей: ",
     groqNone: "Активные модели не найдены.",
-    persona: "1. Выберите режим",
-    pPriest: "Священник (Priest)",
-    pMother: "Мама (Тёплая граница без слияния)",
-    grounding: "<strong>Автономия взрослого:</strong> Мило и вежливо снаружи, ноль слияния внутри. Не отрицайте, не спорьте, не контролируйте и не используйте <strong>JADE</strong> — просто тепло ответьте и идите дальше по своим делам.",
-    stance: "Стиль границы",
-    optMedium: "Medium Chill (Мило, тепло, легко — и сразу дальше)",
-    optGray: "Gray Rock (Серый камень: сухо и нейтрально)",
-    optFirm: "Firm Limit (Тёплая, но чёткая рамка времени/темы)",
-    audience: "2. Адресат",
-    aOpponents: "Оппонентам (To Opponents)",
-    aSelf: "Для себя (To Yourself)",
-    incoming: "3. Вставьте или продиктуйте сообщение (EN / RU)",
-    placeholder: "Вставьте текст или нажмите «Микрофон»...",
+    grounding: "<strong>Начать и закрыть чисто:</strong> Мило и тепло снаружи, полная автономия внутри. Не отрицайте, не спорьте, не контролируйте и не используйте <strong>JADE</strong> — просто тепло ответьте и идите дальше по своим делам.",
+    incoming: "1. Вставьте или продиктуйте сообщение мамы (EN / RU)",
+    placeholder: "Вставьте сообщение или нажмите «Микрофон»...",
     micStart: "Микрофон / Mic",
     micStop: "Стоп / Stop",
     micListening: "Слушаю... говорите.",
     micUnsupported: "Голосовой ввод не поддерживается в этом браузере.",
     micDenied: "Доступ к микрофону запрещён или ошибка распознавания.",
-    replyLang: "4. Язык ответа",
-    btnGenerate: "Сгенерировать ответ",
+    stance: "2. Тон ответа",
+    optMedium: "Милый и тёплый (Medium Chill — и сразу дальше)",
+    optGray: "Короткий и нейтральный (Gray Rock)",
+    optFirm: "Тёплая, но чёткая рамка (Время / Тема)",
+    replyLang: "3. Язык ответа",
+    btnGenerate: "Создать милый ответ без слияния",
+    btnWtf: "Что происходит? / WTF",
     btnSummary: "Сжать (1–2 предл.)",
     btnSpeak: "Озвучить / Speak",
     btnStopSpeak: "Стоп / Stop",
-    btnWtf: "Что происходит? / WTF",
+    wtfOut: "Прямой разбор (только для себя)",
+    wtfLoading: "Смотрю, что тут реально происходит...",
     summaryOut: "Короткий вывод (1–2 предложения)",
     summarizing: "Сжимаю до 1–2 предложений...",
-    wtfOut: "Прямой разбор для себя (без фильтра)",
-    wtfLoading: "Смотрю, что тут реально происходит...",
-    hooks: "Обнаруженные крючки и слияние",
-    fact: "Сухой факт (без вины и проекций)",
-    replyMother: "Милый, добрый ответ маме (скопировать и отправить)",
-    replyStandard: "Готовый ответ",
-    btnCopy: "Скопировать",
+    reply: "Готовый милый ответ (скопировать и отправить)",
+    btnCopy: "Скопировать ответ",
     btnSave: "Сохранить в журнал",
+    hooks: "Обнаруженные крючки слияния и вины",
+    fact: "Сухой факт (без вины и проекций)",
     logSummary: "Журнал ответов (локально в браузере)",
     btnClearLog: "Очистить журнал",
     copied: "Скопировано!",
     saved: "Сохранено!",
     emptyLog: "Записей пока нет.",
     missingKey: "Сначала укажите Groq API ключ в настройках.",
-    missingInput: "Сначала вставьте или продиктуйте сообщение.",
-    ttsUnsupported: "Озвучивание не поддерживается в этом браузере."
+    missingInput: "Сначала вставьте или продиктуйте сообщение."
   }
 };
-
-function selectPersona(persona) {
-  currentPersona = (persona === "mother") ? "mother" : "priest";
-  localStorage.setItem("pr_persona", currentPersona);
-  document.querySelectorAll("#personaGroup .pill").forEach(btn => {
-    btn.classList.remove("active", "mother-active");
-    if (btn.dataset.persona === currentPersona) {
-      btn.classList.add(currentPersona === "mother" ? "mother-active" : "active");
-    }
-  });
-  const isMother = currentPersona === "mother";
-  document.getElementById("motherOptions").style.display = isMother ? "block" : "none";
-  document.getElementById("standardAudienceWrap").style.display = isMother ? "none" : "block";
-  document.getElementById("hooksSection").style.display = isMother ? "block" : "none";
-  document.getElementById("lblReply").textContent = isMother ? UI_TEXT[uiLang].replyMother : UI_TEXT[uiLang].replyStandard;
-}
-
-function selectAudience(aud) {
-  currentAudience = aud;
-  localStorage.setItem("pr_audience", aud);
-  document.getElementById("aOpponents").classList.toggle("active", aud === "opponents");
-  document.getElementById("aSelf").classList.toggle("active", aud === "self");
-}
 
 function applyUiLang() {
   const t = UI_TEXT[uiLang];
@@ -329,32 +266,26 @@ function applyUiLang() {
   document.getElementById("lblModel").textContent = t.model;
   document.getElementById("btnFetchGroq").textContent = t.fetchGroq;
   document.getElementById("lblGroqList").textContent = t.groqList;
-  document.getElementById("lblPersona").textContent = t.persona;
-  document.getElementById("pPriest").textContent = t.pPriest;
-  document.getElementById("pMother").textContent = t.pMother;
   document.getElementById("uiGrounding").innerHTML = t.grounding;
+  document.getElementById("lblIncoming").textContent = t.incoming;
+  document.getElementById("incoming").placeholder = t.placeholder;
+  document.getElementById("btnMic").textContent = isRecording ? t.micStop : t.micStart;
   document.getElementById("lblStance").textContent = t.stance;
   document.getElementById("optMedium").textContent = t.optMedium;
   document.getElementById("optGray").textContent = t.optGray;
   document.getElementById("optFirm").textContent = t.optFirm;
-  document.getElementById("lblAudience").textContent = t.audience;
-  document.getElementById("aOpponents").textContent = t.aOpponents;
-  document.getElementById("aSelf").textContent = t.aSelf;
-  document.getElementById("lblIncoming").textContent = t.incoming;
-  document.getElementById("incoming").placeholder = t.placeholder;
-  document.getElementById("btnMic").textContent = isRecording ? t.micStop : t.micStart;
   document.getElementById("lblReplyLang").textContent = t.replyLang;
   document.getElementById("btnGenerate").textContent = t.btnGenerate;
+  document.getElementById("btnWtf").textContent = t.btnWtf;
   document.getElementById("btnSummary").textContent = t.btnSummary;
   document.getElementById("btnSpeak").textContent = isSpeaking ? t.btnStopSpeak : t.btnSpeak;
-  document.getElementById("btnWtf").textContent = t.btnWtf;
-  document.getElementById("lblSummaryOut").textContent = t.summaryOut;
   document.getElementById("lblWtfOut").textContent = t.wtfOut;
-  document.getElementById("lblHooks").textContent = t.hooks;
-  document.getElementById("lblFact").textContent = t.fact;
-  document.getElementById("lblReply").textContent = currentPersona === "mother" ? t.replyMother : t.replyStandard;
+  document.getElementById("lblSummaryOut").textContent = t.summaryOut;
+  document.getElementById("lblReply").textContent = t.reply;
   document.getElementById("btnCopy").textContent = t.btnCopy;
   document.getElementById("btnSave").textContent = t.btnSave;
+  document.getElementById("lblHooks").textContent = t.hooks;
+  document.getElementById("lblFact").textContent = t.fact;
   document.getElementById("lblLogSummary").textContent = t.logSummary;
   document.getElementById("btnClearLog").textContent = t.btnClearLog;
   renderLog();
@@ -371,8 +302,6 @@ window.onload = () => {
   const savedModel = localStorage.getItem("pr_model") || localStorage.getItem("ber_model");
   document.getElementById("modelName").value = savedModel && savedModel !== "llama-3.1-8b-instant" ? savedModel : DEFAULT_GROQ_MODEL;
   document.getElementById("lang").value = localStorage.getItem("pr_replylang") || "auto";
-  selectPersona(currentPersona);
-  selectAudience(currentAudience);
   applyUiLang();
   if ("speechSynthesis" in window) {
     window.speechSynthesis.getVoices();
@@ -463,18 +392,7 @@ Analyze the mother's incoming message.
 Return ONLY valid JSON: {"hooks": ["..."], "fact": "...", "reply": "..."}`;
 }
 
-function buildPriestPrompt(audience, outLanguage) {
-  const outName = outLanguage === "ru" ? "Russian" : "English";
-  const targetInstruction = audience === "self"
-    ? "Address the user directly ('To Yourself') as an insightful private pastoral reflection clarifying what is happening and how to stay grounded in peace."
-    : "Write the direct spoken/written response ('To Opponents') ready to deliver immediately without meta-commentary.";
-
-  return `You are a calm, dignified, compassionate yet spiritually resolute Priest speaking with moral clarity, pastoral poise, and timeless authority.
-${targetInstruction}
-Write in ${outName}. Keep it punchy, articulate, and grounded (3–5 sentences). Return plain text only.`;
-}
-
-async function generateResponse() {
+async function generateReply() {
   if (isRecording && recognition) recognition.stop();
   const incoming = document.getElementById("incoming").value.trim();
   const outputCard = document.getElementById("outputCard");
@@ -508,49 +426,37 @@ async function generateResponse() {
     return;
   }
 
-  replyBox.textContent = uiLang === "ru" ? "Генерирую ответ..." : "Generating response...";
-  const isMother = currentPersona === "mother";
-  const systemPrompt = isMother
-    ? buildMotherPrompt(uiLang, outLang, document.getElementById("stance").value)
-    : buildPriestPrompt(currentAudience, outLang);
-
-  const payload = {
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: incoming }
-    ]
-  };
-  if (isMother) payload.response_format = { type: "json_object" };
+  replyBox.textContent = uiLang === "ru" ? "Создаю ответ..." : "Drafting reply...";
+  const systemPrompt = buildMotherPrompt(uiLang, outLang, document.getElementById("stance").value);
 
   try {
     const r = await fetch(GROQ_CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: incoming }
+        ],
+        response_format: { type: "json_object" }
+      })
     });
     if (!r.ok) throw new Error(`GROQ API ${r.status}: ${await r.text()}`);
     const data = await r.json();
     const raw = (data.choices?.[0]?.message?.content || "").trim();
-
-    if (isMother) {
-      document.getElementById("hooksSection").style.display = "block";
-      const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-      let parsed;
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch {
-        const m = cleaned.match(/\{[\s\S]*\}/);
-        parsed = m ? JSON.parse(m[0]) : { hooks: ["Boundary Check"], fact: "", reply: cleaned };
-      }
-      const hooks = Array.isArray(parsed.hooks) && parsed.hooks.length ? parsed.hooks : ["Enmeshment Check"];
-      document.getElementById("hooksList").innerHTML = hooks.map(h => `<span class="tag">${h}</span>`).join("");
-      document.getElementById("coreFact").textContent = parsed.fact || "";
-      replyBox.textContent = parsed.reply || "";
-    } else {
-      document.getElementById("hooksSection").style.display = "none";
-      replyBox.textContent = raw;
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      const m = cleaned.match(/\{[\s\S]*\}/);
+      parsed = m ? JSON.parse(m[0]) : { hooks: ["Boundary Check"], fact: "", reply: cleaned };
     }
+    const hooks = Array.isArray(parsed.hooks) && parsed.hooks.length ? parsed.hooks : ["Enmeshment Check"];
+    document.getElementById("hooksList").innerHTML = hooks.map(h => `<span class="tag">${h}</span>`).join("");
+    document.getElementById("coreFact").textContent = parsed.fact || "";
+    replyBox.textContent = parsed.reply || "";
   } catch (err) {
     replyBox.className = "reply-box error-text";
     replyBox.textContent = err.message || String(err);
@@ -627,7 +533,7 @@ async function explainWtf() {
       body: JSON.stringify({
         model: document.getElementById("modelName").value.trim() || DEFAULT_GROQ_MODEL,
         messages: [
-          { role: "system", content: `Give blunt, unfiltered self-talk in 2-3 punchy sentences in ${targetLang} explaining the hidden subtext, guilt-hook, or manipulation in this message so the user doesn't take the bait.` },
+          { role: "system", content: `Give blunt, unfiltered self-talk in 2-3 punchy sentences in ${targetLang} explaining the hidden enmeshment, guilt-hook, or projection in this message so the user doesn't take the bait.` },
           { role: "user", content: incoming }
         ]
       })
@@ -743,7 +649,6 @@ function saveToLog() {
   const logs = JSON.parse(localStorage.getItem("pr_logs") || "[]");
   logs.unshift({
     date: new Date().toLocaleString(),
-    mode: currentPersona.toUpperCase(),
     incoming: document.getElementById("incoming").value.trim(),
     reply: document.getElementById("replyText").textContent
   });
@@ -761,9 +666,9 @@ function renderLog() {
   }
   container.innerHTML = logs.map(item => `
     <div class="log-item">
-      <div style="color:var(--muted); font-size:0.75rem;">${item.date} · <strong>${item.mode || ""}</strong></div>
+      <div style="color:var(--muted); font-size:0.75rem;">${item.date}</div>
       <div><strong>In:</strong> ${item.incoming}</div>
-      <div style="color:var(--ok); margin-top:4px;"><strong>Out:</strong> ${item.reply}</div>
+      <div style="color:var(--accent); margin-top:4px;"><strong>Out:</strong> ${item.reply}</div>
     </div>
   `).join("");
 }
